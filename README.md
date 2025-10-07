@@ -14,8 +14,8 @@ A quick not when installing torch, go to the website and install your platform v
 
 Same for onnxruntime, installing process might vary depending on hardware.
 
-`pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126`
-`pip3 install onnxruntime-gpu` --- or whatever version you need.
+`pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126`  
+`pip3 install onnxruntime-gpu` --- or whatever version you need.  
 `pip3 install ultralytics onnx`
 
 get latest version for your driver from https://pytorch.org/get-started/locally/
