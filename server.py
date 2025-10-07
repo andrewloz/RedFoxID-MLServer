@@ -31,7 +31,13 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             context.set_details("Could not decode image")
             return pb.ResponsePayload(objects=[])
 
-        results = self.model.predict(img, verbose=True, save=True, project="output", device="cuda:0")
+        results = self.model.predict(
+            img, 
+            # verbose=False, 
+            # save=False, 
+            # project="output", 
+            device="cuda:0" # you will want to change this to match your hardware
+        )
         
         objects = results_to_proto_boxes(results[0], pb)
         return objects
