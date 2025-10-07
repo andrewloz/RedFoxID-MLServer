@@ -5,6 +5,7 @@ import logging
 import grpc
 import numpy as np
 import cv2
+from PIL import Image
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
@@ -20,9 +21,17 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             # self.model.to("cuda")
     
     def Request(self, request, context):
-        buf = np.frombuffer(request.image_bytes, dtype=np.uint8)
-        img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-        results = self.model.predict(img, verbose=False, device="cuda:0")
+        # buf = np.frombuffer(request.image_bytes, dtype=np.uint8)
+        # TODO: this requires a better solution, maybe an option in proto to send the format of the payload.
+        img = Image.frombytes('RGBA', (request.image_width, request.image_height), bytes(request.image_bytes))
+        # img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+
+        if img is None:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("Could not decode image")
+            return pb.ResponsePayload(objects=[])
+
+        results = self.model.predict(img, verbose=True, save=True, project="output", device="cuda:0")
         
         objects = results_to_proto_boxes(results[0], pb)
         return objects
