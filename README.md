@@ -26,3 +26,7 @@ to check it worked, you can run the devices.py script.
 
 ### Testing (manual)
 add your onnx model to the models directory, you can add any images you want to test by adding to the `./input` directory. Then running the `server.py` followed by the `test_client.py` will take you through a gRPC request cycle of each `.png` you have added to the input directory, and log various perforamnce metrics. please take a look at `test_client.py` to see what metrics you would be seeing here. 
+
+
+### Proto files.
+we use gRPC, so code is generated using the appropriate libraries for whatever language you want to use. The `.proto` files are in the `./protos` directory. We already have generated code for Go, in the `./go_output` directory.
