@@ -1,0 +1,31 @@
+syntax = "proto3";
+option go_package = "github.com/main/main";
+
+service DetectObject {
+    rpc Request(RequestPayload) returns (ResponsePayload) {}
+}
+
+message BoxXYWH {
+    float x = 1;
+    float y = 2;
+    float w = 3;
+    float h = 4;
+}
+
+message Detection {
+  BoxXYWH box   = 1;
+  float   score = 2;
+  int32   class_id = 3;
+  string  class_name = 4; // optional
+}
+
+message ResponsePayload {
+  repeated Detection objects = 1;
+}
+
+message RequestPayload {
+    // submit the image as bytes.
+    bytes image_bytes = 1;
+    int32 image_width = 2;
+    int32 image_height = 3;
+}
