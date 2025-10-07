@@ -1,0 +1,7 @@
+venv
+model/*
+input/*
+output/*
+__pycache__
+*.pth
+*.pt
