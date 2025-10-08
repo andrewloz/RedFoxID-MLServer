@@ -203,10 +203,18 @@ func (x *ResponsePayload) GetObjects() []*Detection {
 
 type RequestPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// submit the image as bytes.
-	ImageBytes    []byte `protobuf:"bytes,1,opt,name=image_bytes,json=imageBytes,proto3" json:"image_bytes,omitempty"`
-	ImageWidth    int32  `protobuf:"varint,2,opt,name=image_width,json=imageWidth,proto3" json:"image_width,omitempty"`
-	ImageHeight   int32  `protobuf:"varint,3,opt,name=image_height,json=imageHeight,proto3" json:"image_height,omitempty"`
+	// Specifies the data source for inference. sending the image as rgba byte array.
+	ImageRgbaBytes []byte `protobuf:"bytes,1,opt,name=image_rgba_bytes,json=imageRgbaBytes,proto3" json:"image_rgba_bytes,omitempty"`
+	ImageWidth     int32  `protobuf:"varint,2,opt,name=image_width,json=imageWidth,proto3" json:"image_width,omitempty"`
+	ImageHeight    int32  `protobuf:"varint,3,opt,name=image_height,json=imageHeight,proto3" json:"image_height,omitempty"`
+	//	Sets the minimum confidence threshold for detections.
+	//
+	// Objects detected with confidence below this threshold will be disregarded.
+	// Adjusting this value can help reduce false positives.
+	ConfidenceThreshold float32 `protobuf:"fixed32,4,opt,name=confidence_threshold,json=confidenceThreshold,proto3" json:"confidence_threshold,omitempty"`
+	// Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS).
+	// Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.
+	IouThreshold  float32 `protobuf:"fixed32,5,opt,name=iou_threshold,json=iouThreshold,proto3" json:"iou_threshold,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -241,9 +249,9 @@ func (*RequestPayload) Descriptor() ([]byte, []int) {
 	return file_protos_detect_object_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *RequestPayload) GetImageBytes() []byte {
+func (x *RequestPayload) GetImageRgbaBytes() []byte {
 	if x != nil {
-		return x.ImageBytes
+		return x.ImageRgbaBytes
 	}
 	return nil
 }
@@ -258,6 +266,20 @@ func (x *RequestPayload) GetImageWidth() int32 {
 func (x *RequestPayload) GetImageHeight() int32 {
 	if x != nil {
 		return x.ImageHeight
+	}
+	return 0
+}
+
+func (x *RequestPayload) GetConfidenceThreshold() float32 {
+	if x != nil {
+		return x.ConfidenceThreshold
+	}
+	return 0
+}
+
+func (x *RequestPayload) GetIouThreshold() float32 {
+	if x != nil {
+		return x.IouThreshold
 	}
 	return 0
 }
@@ -280,13 +302,14 @@ const file_protos_detect_object_proto_rawDesc = "" +
 	"class_name\x18\x04 \x01(\tR\tclassName\"7\n" +
 	"\x0fResponsePayload\x12$\n" +
 	"\aobjects\x18\x01 \x03(\v2\n" +
-	".DetectionR\aobjects\"u\n" +
-	"\x0eRequestPayload\x12\x1f\n" +
-	"\vimage_bytes\x18\x01 \x01(\fR\n" +
-	"imageBytes\x12\x1f\n" +
+	".DetectionR\aobjects\"\xd6\x01\n" +
+	"\x0eRequestPayload\x12(\n" +
+	"\x10image_rgba_bytes\x18\x01 \x01(\fR\x0eimageRgbaBytes\x12\x1f\n" +
 	"\vimage_width\x18\x02 \x01(\x05R\n" +
 	"imageWidth\x12!\n" +
-	"\fimage_height\x18\x03 \x01(\x05R\vimageHeight2>\n" +
+	"\fimage_height\x18\x03 \x01(\x05R\vimageHeight\x121\n" +
+	"\x14confidence_threshold\x18\x04 \x01(\x02R\x13confidenceThreshold\x12#\n" +
+	"\riou_threshold\x18\x05 \x01(\x02R\fiouThreshold2>\n" +
 	"\fDetectObject\x12.\n" +
 	"\aRequest\x12\x0f.RequestPayload\x1a\x10.ResponsePayload\"\x00B\x16Z\x14github.com/main/mainb\x06proto3"
 

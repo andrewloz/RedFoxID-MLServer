@@ -37,11 +37,15 @@ class ResponsePayload(_message.Message):
     def __init__(self, objects: _Optional[_Iterable[_Union[Detection, _Mapping]]] = ...) -> None: ...
 
 class RequestPayload(_message.Message):
-    __slots__ = ("image_bytes", "image_width", "image_height")
-    IMAGE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("image_rgba_bytes", "image_width", "image_height", "confidence_threshold", "iou_threshold")
+    IMAGE_RGBA_BYTES_FIELD_NUMBER: _ClassVar[int]
     IMAGE_WIDTH_FIELD_NUMBER: _ClassVar[int]
     IMAGE_HEIGHT_FIELD_NUMBER: _ClassVar[int]
-    image_bytes: bytes
+    CONFIDENCE_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    IOU_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    image_rgba_bytes: bytes
     image_width: int
     image_height: int
-    def __init__(self, image_bytes: _Optional[bytes] = ..., image_width: _Optional[int] = ..., image_height: _Optional[int] = ...) -> None: ...
+    confidence_threshold: float
+    iou_threshold: float
+    def __init__(self, image_rgba_bytes: _Optional[bytes] = ..., image_width: _Optional[int] = ..., image_height: _Optional[int] = ..., confidence_threshold: _Optional[float] = ..., iou_threshold: _Optional[float] = ...) -> None: ...

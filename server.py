@@ -13,18 +13,12 @@ import detect_object_pb2 as pb
 
 from server_utils import results_to_proto_boxes
 
-# Load model
 class DetectObjectService(pbgrpc.DetectObjectServicer):
     def __init__(self, weights="./model/best.onnx"):
             self.model = YOLO(weights, task="detect")
-            # self.model = YOLO(weights, task="detect")
-            # self.model.to("cuda")
     
     def Request(self, request, context):
-        # buf = np.frombuffer(request.image_bytes, dtype=np.uint8)
-        # TODO: this requires a better solution, maybe an option in proto to send the format of the payload.
-        img = Image.frombytes('RGBA', (request.image_width, request.image_height), bytes(request.image_bytes))
-        # img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        img = Image.frombytes('RGBA', (request.image_width, request.image_height), bytes(request.image_rgba_bytes))
 
         if img is None:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
@@ -33,7 +27,9 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
 
         results = self.model.predict(
             img, 
-            # verbose=False, 
+            conf=request.confidence_threshold, 
+            iou=request.iou_threshold,
+            verbose=False, 
             # save=False, 
             # project="output", 
             device="cuda:0" # you will want to change this to match your hardware

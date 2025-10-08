@@ -24,8 +24,15 @@ message ResponsePayload {
 }
 
 message RequestPayload {
-    // submit the image as bytes.
-    bytes image_bytes = 1;
+    // Specifies the data source for inference. sending the image as rgba byte array. 
+    bytes image_rgba_bytes = 1;
     int32 image_width = 2;
     int32 image_height = 3;
+    // 	Sets the minimum confidence threshold for detections. 
+    // Objects detected with confidence below this threshold will be disregarded. 
+    // Adjusting this value can help reduce false positives.
+    float confidence_threshold = 4;
+    // Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). 
+    // Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.
+    float iou_threshold = 5;
 }
