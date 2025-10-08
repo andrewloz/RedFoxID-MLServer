@@ -30,8 +30,9 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             conf=request.confidence_threshold, 
             iou=request.iou_threshold,
             verbose=False, 
-            # save=False, 
-            # project="output", 
+            save=True, 
+            project="./output",
+            name=request.image_name, # this stops subdirectories being created, when save is true
             device="cuda:0" # you will want to change this to match your hardware
         )
         

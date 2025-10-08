@@ -35,4 +35,5 @@ message RequestPayload {
     // Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). 
     // Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.
     float iou_threshold = 5;
+    string image_name = 6;
 }
