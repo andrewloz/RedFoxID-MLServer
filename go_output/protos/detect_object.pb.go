@@ -92,7 +92,7 @@ func (x *BoxXYWH) GetH() float32 {
 type Detection struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Box           *BoxXYWH               `protobuf:"bytes,1,opt,name=box,proto3" json:"box,omitempty"`
-	Score         float32                `protobuf:"fixed32,2,opt,name=score,proto3" json:"score,omitempty"`
+	Confidence    float32                `protobuf:"fixed32,2,opt,name=confidence,proto3" json:"confidence,omitempty"`
 	ClassId       int32                  `protobuf:"varint,3,opt,name=class_id,json=classId,proto3" json:"class_id,omitempty"`
 	ClassName     string                 `protobuf:"bytes,4,opt,name=class_name,json=className,proto3" json:"class_name,omitempty"` // optional
 	unknownFields protoimpl.UnknownFields
@@ -136,9 +136,9 @@ func (x *Detection) GetBox() *BoxXYWH {
 	return nil
 }
 
-func (x *Detection) GetScore() float32 {
+func (x *Detection) GetConfidence() float32 {
 	if x != nil {
-		return x.Score
+		return x.Confidence
 	}
 	return 0
 }
@@ -293,10 +293,12 @@ const file_protos_detect_object_proto_rawDesc = "" +
 	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x02R\x01y\x12\f\n" +
 	"\x01w\x18\x03 \x01(\x02R\x01w\x12\f\n" +
-	"\x01h\x18\x04 \x01(\x02R\x01h\"w\n" +
+	"\x01h\x18\x04 \x01(\x02R\x01h\"\x81\x01\n" +
 	"\tDetection\x12\x1a\n" +
-	"\x03box\x18\x01 \x01(\v2\b.BoxXYWHR\x03box\x12\x14\n" +
-	"\x05score\x18\x02 \x01(\x02R\x05score\x12\x19\n" +
+	"\x03box\x18\x01 \x01(\v2\b.BoxXYWHR\x03box\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\x02 \x01(\x02R\n" +
+	"confidence\x12\x19\n" +
 	"\bclass_id\x18\x03 \x01(\x05R\aclassId\x12\x1d\n" +
 	"\n" +
 	"class_name\x18\x04 \x01(\tR\tclassName\"7\n" +

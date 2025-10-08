@@ -19,16 +19,16 @@ class BoxXYWH(_message.Message):
     def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ..., w: _Optional[float] = ..., h: _Optional[float] = ...) -> None: ...
 
 class Detection(_message.Message):
-    __slots__ = ("box", "score", "class_id", "class_name")
+    __slots__ = ("box", "confidence", "class_id", "class_name")
     BOX_FIELD_NUMBER: _ClassVar[int]
-    SCORE_FIELD_NUMBER: _ClassVar[int]
+    CONFIDENCE_FIELD_NUMBER: _ClassVar[int]
     CLASS_ID_FIELD_NUMBER: _ClassVar[int]
     CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
     box: BoxXYWH
-    score: float
+    confidence: float
     class_id: int
     class_name: str
-    def __init__(self, box: _Optional[_Union[BoxXYWH, _Mapping]] = ..., score: _Optional[float] = ..., class_id: _Optional[int] = ..., class_name: _Optional[str] = ...) -> None: ...
+    def __init__(self, box: _Optional[_Union[BoxXYWH, _Mapping]] = ..., confidence: _Optional[float] = ..., class_id: _Optional[int] = ..., class_name: _Optional[str] = ...) -> None: ...
 
 class ResponsePayload(_message.Message):
     __slots__ = ("objects",)

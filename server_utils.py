@@ -24,7 +24,7 @@ def results_to_proto_boxes(r, pb):
     for (x, y, w, h), s, c in zip(xywh, conf, cls):
         det = pb.Detection(
             box=pb.BoxXYWH(x=float(x), y=float(y), w=float(w), h=float(h)),
-            score=float(s),
+            confidence=float(s),
             class_id=int(c),
             class_name=names.get(int(c), "")
         )

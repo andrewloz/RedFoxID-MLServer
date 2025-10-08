@@ -14,7 +14,7 @@ message BoxXYWH {
 
 message Detection {
   BoxXYWH box   = 1;
-  float   score = 2;
+  float   confidence = 2;
   int32   class_id = 3;
   string  class_name = 4; // optional
 }
