@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x64\x65tect_object.proto\"5\n\x07\x42oxXYWH\x12\t\n\x01x\x18\x01 \x01(\x02\x12\t\n\x01y\x18\x02 \x01(\x02\x12\t\n\x01w\x18\x03 \x01(\x02\x12\t\n\x01h\x18\x04 \x01(\x02\"\\\n\tDetection\x12\x15\n\x03\x62ox\x18\x01 \x01(\x0b\x32\x08.BoxXYWH\x12\x12\n\nconfidence\x18\x02 \x01(\x02\x12\x10\n\x08\x63lass_id\x18\x03 \x01(\x05\x12\x12\n\nclass_name\x18\x04 \x01(\t\".\n\x0fResponsePayload\x12\x1b\n\x07objects\x18\x01 \x03(\x0b\x32\n.Detection\"\x9e\x01\n\x0eRequestPayload\x12\x18\n\x10image_rgba_bytes\x18\x01 \x01(\x0c\x12\x13\n\x0bimage_width\x18\x02 \x01(\x05\x12\x14\n\x0cimage_height\x18\x03 \x01(\x05\x12\x1c\n\x14\x63onfidence_threshold\x18\x04 \x01(\x02\x12\x15\n\riou_threshold\x18\x05 \x01(\x02\x12\x12\n\nimage_name\x18\x06 \x01(\t2>\n\x0c\x44\x65tectObject\x12.\n\x07Request\x12\x0f.RequestPayload\x1a\x10.ResponsePayload\"\x00\x42\x16Z\x14github.com/main/mainb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x64\x65tect_object.proto\"5\n\x07\x42oxXYWH\x12\t\n\x01x\x18\x01 \x01(\x02\x12\t\n\x01y\x18\x02 \x01(\x02\x12\t\n\x01w\x18\x03 \x01(\x02\x12\t\n\x01h\x18\x04 \x01(\x02\"\\\n\tDetection\x12\x15\n\x03\x62ox\x18\x01 \x01(\x0b\x32\x08.BoxXYWH\x12\x12\n\nconfidence\x18\x02 \x01(\x02\x12\x10\n\x08\x63lass_id\x18\x03 \x01(\x05\x12\x12\n\nclass_name\x18\x04 \x01(\t\".\n\x0fResponsePayload\x12\x1b\n\x07objects\x18\x01 \x03(\x0b\x32\n.Detection\"\xb2\x01\n\x0eRequestPayload\x12\x18\n\x10image_rgba_bytes\x18\x01 \x01(\x0c\x12\x13\n\x0bimage_width\x18\x02 \x01(\x05\x12\x14\n\x0cimage_height\x18\x03 \x01(\x05\x12\x1c\n\x14\x63onfidence_threshold\x18\x04 \x01(\x02\x12\x15\n\riou_threshold\x18\x05 \x01(\x02\x12\x12\n\nimage_name\x18\x06 \x01(\t\x12\x12\n\nmodel_name\x18\x07 \x01(\t2>\n\x0c\x44\x65tectObject\x12.\n\x07Request\x12\x0f.RequestPayload\x1a\x10.ResponsePayload\"\x00\x42\x16Z\x14github.com/main/mainb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,7 +39,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_RESPONSEPAYLOAD']._serialized_start=172
   _globals['_RESPONSEPAYLOAD']._serialized_end=218
   _globals['_REQUESTPAYLOAD']._serialized_start=221
-  _globals['_REQUESTPAYLOAD']._serialized_end=379
-  _globals['_DETECTOBJECT']._serialized_start=381
-  _globals['_DETECTOBJECT']._serialized_end=443
+  _globals['_REQUESTPAYLOAD']._serialized_end=399
+  _globals['_DETECTOBJECT']._serialized_start=401
+  _globals['_DETECTOBJECT']._serialized_end=463
 # @@protoc_insertion_point(module_scope)

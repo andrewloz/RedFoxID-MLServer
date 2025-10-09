@@ -216,6 +216,7 @@ type RequestPayload struct {
 	// Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.
 	IouThreshold  float32 `protobuf:"fixed32,5,opt,name=iou_threshold,json=iouThreshold,proto3" json:"iou_threshold,omitempty"`
 	ImageName     string  `protobuf:"bytes,6,opt,name=image_name,json=imageName,proto3" json:"image_name,omitempty"`
+	ModelName     string  `protobuf:"bytes,7,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -292,6 +293,13 @@ func (x *RequestPayload) GetImageName() string {
 	return ""
 }
 
+func (x *RequestPayload) GetModelName() string {
+	if x != nil {
+		return x.ModelName
+	}
+	return ""
+}
+
 var File_protos_detect_object_proto protoreflect.FileDescriptor
 
 const file_protos_detect_object_proto_rawDesc = "" +
@@ -312,7 +320,7 @@ const file_protos_detect_object_proto_rawDesc = "" +
 	"class_name\x18\x04 \x01(\tR\tclassName\"7\n" +
 	"\x0fResponsePayload\x12$\n" +
 	"\aobjects\x18\x01 \x03(\v2\n" +
-	".DetectionR\aobjects\"\xf5\x01\n" +
+	".DetectionR\aobjects\"\x94\x02\n" +
 	"\x0eRequestPayload\x12(\n" +
 	"\x10image_rgba_bytes\x18\x01 \x01(\fR\x0eimageRgbaBytes\x12\x1f\n" +
 	"\vimage_width\x18\x02 \x01(\x05R\n" +
@@ -321,7 +329,9 @@ const file_protos_detect_object_proto_rawDesc = "" +
 	"\x14confidence_threshold\x18\x04 \x01(\x02R\x13confidenceThreshold\x12#\n" +
 	"\riou_threshold\x18\x05 \x01(\x02R\fiouThreshold\x12\x1d\n" +
 	"\n" +
-	"image_name\x18\x06 \x01(\tR\timageName2>\n" +
+	"image_name\x18\x06 \x01(\tR\timageName\x12\x1d\n" +
+	"\n" +
+	"model_name\x18\a \x01(\tR\tmodelName2>\n" +
 	"\fDetectObject\x12.\n" +
 	"\aRequest\x12\x0f.RequestPayload\x1a\x10.ResponsePayload\"\x00B\x16Z\x14github.com/main/mainb\x06proto3"
 
