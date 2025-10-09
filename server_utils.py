@@ -1,6 +1,5 @@
 # server_utils.py
 import numpy as np
-from rfdetr.util.coco_classes import COCO_CLASSES
 
 def results_to_proto_boxes(r, pb):
     """
@@ -19,7 +18,6 @@ def results_to_proto_boxes(r, pb):
     xywh = r.boxes.xywh.detach().cpu().numpy()          
     conf = r.boxes.conf.detach().cpu().numpy()          
     cls  = r.boxes.cls.detach().cpu().numpy().astype(int) 
-
 
     for (x, y, w, h), s, c in zip(xywh, conf, cls):
         det = pb.Detection(

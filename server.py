@@ -14,10 +14,22 @@ import detect_object_pb2 as pb
 from server_utils import results_to_proto_boxes
 
 class DetectObjectService(pbgrpc.DetectObjectServicer):
-    def __init__(self, weights="./model/best.onnx"):
-            self.model = YOLO(weights, task="detect")
-    
+    def __init__(self):
+        self.models = {}
+
+    def _get_model(self, name):
+        if name not in self.models:
+            self.models[name] = YOLO(f"model/{name}", task="detect")
+        return self.models[name]
+
     def Request(self, request, context):
+        if not getattr(request, "model_name", None):
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("No model loaded, please provide model weights")
+            return pb.ResponsePayload(objects=[])
+
+        model = self._get_model(request.model_name)
+        
         img = Image.frombytes('RGBA', (request.image_width, request.image_height), bytes(request.image_rgba_bytes))
 
         if img is None:
@@ -25,7 +37,7 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             context.set_details("Could not decode image")
             return pb.ResponsePayload(objects=[])
 
-        results = self.model.predict(
+        results = model.predict(
             img, 
             conf=request.confidence_threshold, 
             iou=request.iou_threshold,
@@ -33,7 +45,7 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             # save=True, 
             # project="./output",
             # name=request.image_name, # this stops subdirectories being created, when save is true
-            device="cuda:0" # you will want to change this to match your hardware
+            # device="coreml" # you will want to change this to match your hardware
         )
         
         objects = results_to_proto_boxes(results[0], pb)
