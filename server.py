@@ -9,7 +9,7 @@ from PIL import Image
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
-import configparser
+from config import config
 
 
 from server_utils import results_to_proto_boxes
@@ -107,11 +107,6 @@ def serve():
     print("Server started, listening on " + port)
     server.wait_for_termination()
 
-def config():
-    config = configparser.ConfigParser()
-    with open("config.ini", "r") as f:
-        config.read_file(f)
-    return config
 
 
 if __name__ == "__main__":
