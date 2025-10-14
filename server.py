@@ -53,8 +53,15 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             save=bool(int(self.config.get("SaveImg", "0"))),
             project="./output",
             name=request.image_name, # this stops subdirectories being created, when save is true
-            device=self.config.get("Device", "cpu") # you will want to change this to match your hardware
+            device=self.config.get("Device", "") # you will want to change this to match your hardware
         )
+
+        # force flattening if output is true
+        if bool(int(self.config.get("SaveImg", "0"))):
+            from flatten_output_dir import flatten
+            from pathlib import Path
+
+            flatten(Path("./output") / "Images")
 
         objects = results_to_proto_boxes(results[0], pb)
         return objects

@@ -18,9 +18,8 @@ https://onnxruntime.ai/docs/install/
 
 Same for onnxruntime, installing process might vary depending on hardware.
 
-`pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126`  
-`pip3 install onnxruntime-gpu` --- or whatever version you need.  
-`pip3 install ultralytics onnx`
+`pip3 install ultralytics` -- this downloads seperate runtime environments depending on the hardware/model provided in the code. seems to 
+automatically find the best way to run the model and installs the relevant drivers for it.
 
 to check it worked, you can run the devices.py script.
 
@@ -42,3 +41,9 @@ and here is how we generate python gRPC code
 ```
 python -m grpc_tools.protoc -I./protos --python_out=. --pyi_out=. --grpc_python_out=. ./protos/detect_object.proto
 ```
+
+
+# Configs
+
+you can copy the example-config.ini and rename it to config.ini to start with. you will want to be changing values 
+under the InferenceServer section.
