@@ -14,6 +14,9 @@ import configparser
 
 from server_utils import results_to_proto_boxes
 
+import time
+from timings_opt import TimingsInterceptor, start_metrics_server, phase_observe
+
 class DetectObjectService(pbgrpc.DetectObjectServicer):
     def __init__(self):
         self.config = config()["InferenceServer"]
@@ -34,17 +37,21 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
 
         model = self._get_model(request.model_name)
 
+        # ----- deserialize (timed) -----
+        t0 = time.perf_counter()
         img = Image.frombytes(
             "RGBA",
             (request.image_width, request.image_height),
             bytes(request.image_rgba_bytes),
-        )
-
+        ).convert("RGB")
         if img is None:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details("Could not decode image")
             return pb.ResponsePayload(objects=[])
+        t1 = time.perf_counter(); phase_observe("deserialize", request.model_name, t1 - t0)
 
+        # ----- model inference (timed) -----
+        t2 = time.perf_counter()
         results = model.predict(
             img,
             conf=request.confidence_threshold,
@@ -52,24 +59,48 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             verbose=bool(int(self.config.get("Verbose", "0"))),
             save=bool(int(self.config.get("SaveImg", "0"))),
             project="./output",
-            name=request.image_name, # this stops subdirectories being created, when save is true
-            device=self.config.get("Device", "") # you will want to change this to match your hardware
+            name=request.image_name,
+            device=self.config.get("Device", "")
         )
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()  # accurate GPU timing
+        except Exception:
+            pass
+        t3 = time.perf_counter(); phase_observe("model", request.model_name, t3 - t2)
 
-        # force flattening if output is true
+        # optional flatten
         if bool(int(self.config.get("SaveImg", "0"))):
             from flatten_output_dir import flatten
             from pathlib import Path
-
             flatten(Path("./output") / "Images")
 
+        # ----- serialize (timed) -----
+        t4s = time.perf_counter()
         objects = results_to_proto_boxes(results[0], pb)
+        t4e = time.perf_counter(); phase_observe("serialize", request.model_name, t4e - t4s)
+        phase_observe("total", request.model_name, t4e - t0)
+
         return objects
 
 def serve():
     cfg = config()["InferenceServer"]
     port = cfg.get("Port", "50051")
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))))
+
+    if bool(int(cfg.get("Profiling", "0"))):
+            start_metrics_server(8000)
+
+    interceptors = []
+    if TimingsInterceptor is not None:
+        interceptors.append(TimingsInterceptor())
+
+
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))),
+        interceptors=interceptors
+    )
+
     pbgrpc.add_DetectObjectServicer_to_server(DetectObjectService(), server)
     server.add_insecure_port("[::]:" + port) # do we need any kind of secure transport if its inside a secure network?
     server.start()
