@@ -9,12 +9,16 @@ from PIL import Image
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
+import configparser
 
 
 from server_utils import results_to_proto_boxes
 
 class DetectObjectService(pbgrpc.DetectObjectServicer):
     def __init__(self):
+        self.config = config()["InferenceServer"]
+        print("Configuration:", dict(self.config))
+
         self.models = {}
 
     def _get_model(self, name):
@@ -29,8 +33,12 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             return pb.ResponsePayload(objects=[])
 
         model = self._get_model(request.model_name)
-        
-        img = Image.frombytes('RGBA', (request.image_width, request.image_height), bytes(request.image_rgba_bytes))
+
+        img = Image.frombytes(
+            "RGBA",
+            (request.image_width, request.image_height),
+            bytes(request.image_rgba_bytes),
+        )
 
         if img is None:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
@@ -38,27 +46,34 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             return pb.ResponsePayload(objects=[])
 
         results = model.predict(
-            img, 
-            conf=request.confidence_threshold, 
+            img,
+            conf=request.confidence_threshold,
             iou=request.iou_threshold,
-            verbose=False, 
-            # save=True, 
-            # project="./output",
-            # name=request.image_name, # this stops subdirectories being created, when save is true
-            # device="coreml" # you will want to change this to match your hardware
+            verbose=bool(int(self.config.get("Verbose", "0"))),
+            save=bool(int(self.config.get("SaveImg", "0"))),
+            project="./output",
+            name=request.image_name, # this stops subdirectories being created, when save is true
+            device=self.config.get("Device", "cpu") # you will want to change this to match your hardware
         )
-        
+
         objects = results_to_proto_boxes(results[0], pb)
         return objects
 
 def serve():
-    port = "50051"
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    cfg = config()["InferenceServer"]
+    port = cfg.get("Port", "50051")
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))))
     pbgrpc.add_DetectObjectServicer_to_server(DetectObjectService(), server)
-    server.add_insecure_port("[::]:" + port)
+    server.add_insecure_port("[::]:" + port) # do we need any kind of secure transport if its inside a secure network?
     server.start()
     print("Server started, listening on " + port)
     server.wait_for_termination()
+
+def config():
+    config = configparser.ConfigParser()
+    with open("config.ini", "r") as f:
+        config.read_file(f)
+    return config
 
 
 if __name__ == "__main__":
