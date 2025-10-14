@@ -47,3 +47,32 @@ python -m grpc_tools.protoc -I./protos --python_out=. --pyi_out=. --grpc_python_
 
 you can copy the example-config.ini and rename it to config.ini to start with. you will want to be changing values 
 under the InferenceServer section.
+
+
+# Profiling
+
+When Profiling is set to `1` in config.ini it exposes Prometheus client at localhost:8000/metrics
+
+You can capture a snapshot and analyze it offline using the provided read_metrics.py utility:
+
+```
+curl -s http://localhost:8000/metrics > metrics.txt
+python read_metrics.py metrics.txt
+```
+
+OR 
+
+``` 
+curl http://localhost:8000/metrics | python read_metrics.py -
+```
+
+This script parses the Prometheus metrics and prints summaries for: 
+
+**gRPC latency** — overall request time measured per RPC method.   
+**Inference phases** — timing breakdown of each stage (deserialize, model, serialize, total) per model.   
+**Process stats** — current CPU time and RSS (Resident Set Size), which represents the actual RAM used by the server.
+
+For each metric group, the script reports:  
+**count** – number of requests observed  
+**avg** – average latency  
+**p50 / p95 / p99** – estimated 50th, 95th, and 99th percentile latencies
