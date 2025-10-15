@@ -47,3 +47,15 @@ python -m grpc_tools.protoc -I./protos --python_out=. --pyi_out=. --grpc_python_
 
 you can copy the example-config.ini and rename it to config.ini to start with. you will want to be changing values 
 under the InferenceServer section.
+
+
+# Profiling
+We can use pythons built in profiling tool `cProfile` like so  
+`python -m cProfile -o server_profile.prof`  
+
+And then visualise the results with a tool called snakeviz like so  
+```
+# install 
+pip install snakeviz
+snakeviz server_profile.prof
+```
