@@ -25,7 +25,7 @@ message ResponsePayload {
 
 message RequestPayload {
     // Specifies the data source for inference. sending the image as rgba byte array. 
-    bytes image_rgba_bytes = 1;
+    bytes image_png_bytes = 1;
     int32 image_width = 2;
     int32 image_height = 3;
     // 	Sets the minimum confidence threshold for detections. 

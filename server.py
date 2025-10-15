@@ -5,7 +5,6 @@ import logging
 import grpc
 import numpy as np
 import cv2
-from PIL import Image
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
@@ -43,16 +42,16 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
 
     def Request(self, request, context):
         try:
+            if not getattr(request, "image_png_bytes", None):
+                raise Exception("No image_png_bytes in payload loaded, please provide image btyes for inference")
+
             if not getattr(request, "model_name", None):
                 raise Exception("No model_name in payload loaded, please provide model_name")
             
             model = self._get_model(request.model_name)
 
-            img = Image.frombytes(
-                "RGBA",
-                (request.image_width, request.image_height),
-                bytes(request.image_rgba_bytes),
-            )
+            np_arr = np.frombuffer(request.image_png_bytes, dtype=np.uint8)
+            img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
             if img is None:
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
@@ -61,6 +60,7 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
 
             results = model.predict(
                 img,
+                imgsz=(img.shape[0], img.shape[1]),
                 conf=request.confidence_threshold,
                 iou=request.iou_threshold,
                 verbose=bool(int(self.config.get("Verbose", "0"))),
