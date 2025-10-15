@@ -1,31 +1,50 @@
-# server_utils.py
 import numpy as np
+import torch
 
 def results_to_proto_boxes(r, pb):
     """
     r: Ultralytics Results (e.g. results[0])
-    pb: generated yolo_pb2 module
-    normalize: if True, boxes are normalized to [0,1] by (W,H)
+    pb: generated detect_object_pb2 module
     """
-    H, W = map(int, r.orig_shape[:2])
     out = pb.ResponsePayload()
 
-    if not hasattr(r, "boxes") or r.boxes is None or len(r.boxes) == 0:
+    boxes = getattr(r, "boxes", None)
+    if boxes is None or len(boxes) == 0:
         return out
 
+    # Shape: [N, 6] -> [x, y, w, h, conf, cls]
+    t_xywh   = boxes.xywh               # [N,4]
+    t_conf   = boxes.conf.unsqueeze(1)  # [N,1]
+    t_cls    = boxes.cls.unsqueeze(1)   # [N,1]
+    t_all    = torch.cat((t_xywh, t_conf, t_cls), dim=1)
+    arr      = t_all.to("cpu", non_blocking=True).numpy()
+
     names = getattr(r, "names", {}) or {}
+    if isinstance(names, dict):
+        get_name = names.get
+        def class_name_fn(c_int):  # local fn to keep loop tight
+            return get_name(c_int, "")
+    else:
+        def class_name_fn(c_int):
+            try:
+                return names[c_int]
+            except Exception:
+                return ""
 
-    xywh = r.boxes.xywh.detach().cpu().numpy()          
-    conf = r.boxes.conf.detach().cpu().numpy()          
-    cls  = r.boxes.cls.detach().cpu().numpy().astype(int) 
+    Box = pb.BoxXYWH
+    Det = pb.Detection
 
-    for (x, y, w, h), s, c in zip(xywh, conf, cls):
-        det = pb.Detection(
-            box=pb.BoxXYWH(x=float(x), y=float(y), w=float(w), h=float(h)),
-            confidence=float(s),
-            class_id=int(c),
-            class_name=names.get(int(c), "")
+    dets = []
+    for x, y, w, h, s, c in arr:
+        c_int = int(c)
+        dets.append(
+            Det(
+                box=Box(x=float(x), y=float(y), w=float(w), h=float(h)),
+                confidence=float(s),
+                class_id=c_int,
+                class_name=class_name_fn(c_int),
+            )
         )
-        out.objects.append(det)
 
+    out.objects.extend(dets)
     return out

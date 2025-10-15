@@ -81,6 +81,7 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
             return objects
 
         except Exception as e: 
+            print(e)
             context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
             context.set_details(str(e))
             return pb.ResponsePayload(objects=[])
