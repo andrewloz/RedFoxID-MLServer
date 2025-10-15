@@ -13,6 +13,7 @@ import configparser
 
 
 from server_utils import results_to_proto_boxes
+from config import config
 
 class DetectObjectService(pbgrpc.DetectObjectServicer):
     def __init__(self):
@@ -75,13 +76,6 @@ def serve():
     server.start()
     print("Server started, listening on " + port)
     server.wait_for_termination()
-
-def config():
-    config = configparser.ConfigParser()
-    with open("config.ini", "r") as f:
-        config.read_file(f)
-    return config
-
 
 if __name__ == "__main__":
     logging.basicConfig()
