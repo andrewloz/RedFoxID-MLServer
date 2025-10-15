@@ -88,9 +88,10 @@ class DetectObjectService(pbgrpc.DetectObjectServicer):
 def serve():
     cfg, models = config()
     port = cfg.get("Port", "50051")
+    host = cfg.get("Host", "[::]")
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))))
     pbgrpc.add_DetectObjectServicer_to_server(DetectObjectService(), server)
-    server.add_insecure_port("[::]:" + port) # do we need any kind of secure transport if its inside a secure network?
+    server.add_insecure_port(f"{host}:{str(port)}") # do we need any kind of secure transport if its inside a secure network?
     server.start()
     print("Server started, listening on " + port)
     server.wait_for_termination()
