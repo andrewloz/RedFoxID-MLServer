@@ -27,22 +27,6 @@ to check it worked, you can run the devices.py script.
 add your onnx model to the models directory, you can add any images you want to test by adding to the `./input` directory. Then running the `server.py` followed by the `test_client.py` will take you through a gRPC request cycle of each `.png` you have added to the input directory, and log various perforamnce metrics. please take a look at `test_client.py` to see what metrics you would be seeing here. 
 
 
-### Proto files and gRPC.
-we use gRPC, so code is generated using the appropriate libraries for whatever language you want to use. The `.proto` files are in the `./protos` directory. We already have generated code for Go, in the `./go_output` directory.
-
-
-Here is an example of how we generate Go gRPC code.
-```
-protoc --go_out=./go_output --go_opt=paths=source_relative     --go-grpc_out=./go_output --go-grpc_opt=paths=source_relative ./protos/detect_object.proto
-```
-
-
-and here is how we generate python gRPC code
-```
-python -m grpc_tools.protoc -I./protos --python_out=. --pyi_out=. --grpc_python_out=. ./protos/detect_object.proto
-```
-
-
 # Configs
 
 you can copy the example-config.ini and rename it to config.ini to start with. you will want to be changing values 
