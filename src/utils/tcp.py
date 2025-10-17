@@ -84,6 +84,10 @@ class TCPListen:
                     print(image_name, model_name)
 
                     # TODO: process image here
+
+                    # TODO: send response here
+
+
                 else:
                     # default case. Read the full packet and ignore it.
                     print(f"Received message type {msg_type} not handled")
