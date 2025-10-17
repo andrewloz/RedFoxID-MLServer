@@ -38,7 +38,7 @@ def build_image_packet(img_bytes: bytes, image_name: str, model_name: str, width
     return header + body
 
 
-def send(image_path: str, model_name: str, conf: float = 0.5, iou: float = 0.5):
+def send(image_path: str, model_name: str, times: int = 50, conf: float = 0.5, iou: float = 0.5):
     cfg, models = Config("config.ini").getAll()
     host = cfg.get("Host", "[::]")
     port = cfg.get("Port", "8089")
@@ -52,16 +52,13 @@ def send(image_path: str, model_name: str, conf: float = 0.5, iou: float = 0.5):
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((host, int(port)))
-        s.sendall(packet)
+
+        for _ in range(times):
+            start = time.time()
+            s.sendall(packet)
+            print(f"time taken: {round((time.time() - start) * 1000, 4)}ms")
 
 
 if __name__ == "__main__":
-    amount = 0
-    while amount < 50:
-        start = time.time()
-        send("./input/test.png", "test")
-        print(f"time taken: {time.time() - start}")
-
-        amount += 1
-
+    send("./input/test.png", "test")
 
