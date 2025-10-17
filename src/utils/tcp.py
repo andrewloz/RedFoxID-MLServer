@@ -32,7 +32,7 @@ class TCPListen:
             self.accept_wrapper(self.sock)
 
     # returns None if failed to read full length
-    def recv_all(conn, length):
+    def recv_all(self, conn, length):
         data = bytearray(length)
         view = memoryview(data)
         bytes_received = 0
@@ -50,6 +50,7 @@ class TCPListen:
 
             while True:
                 header = self.recv_all(conn, PACKET_HEADER_SIZE) # blocking
+                print(header, PACKET_HEADER_SIZE)
                 if header is None:
                     print(f"Failed to read header from {addr}")
                     break
@@ -78,6 +79,9 @@ class TCPListen:
                     offset += image_name_length
                     model_name = body[offset:offset+model_name_length].decode(FORMAT)
                     offset += model_name_length
+
+                    print(image_width, image_height, confidence_threshold, iou_threshold, image_length, image_name_length, model_name_length)
+                    print(image_name, model_name)
 
                     # TODO: process image here
                 else:

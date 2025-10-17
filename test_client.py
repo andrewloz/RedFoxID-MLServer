@@ -1,45 +1,67 @@
 import socket
 from src.config import Config
 import time
+import struct
+from pathlib import Path
+import time 
+
 
 CONTENT_LENGTH_HEADER = 64 # a number that represents the length of content being recieved
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE="!DISCONNECT"
 
+PACKET_HEADER_FORMAT = '<IBBBB'
+PACKET_HEADER_SIZE = struct.calcsize(PACKET_HEADER_FORMAT)
 
-def send(msg, client):
-    message = msg.encode(FORMAT)
-    msg_length = len(message)
-    send_length = str(msg_length).encode(FORMAT)
+IMAGE_MSG = 1
+IMAGE_MSG_HEADER_FORMAT = '<iiffIBB'
 
-    # now we pad send length to make sure its 64 bytes long
-    send_length += b' ' * (CONTENT_LENGTH_HEADER - len(send_length))
+def build_image_packet(img_bytes: bytes, image_name: str, model_name: str, width: int, height: int, conf: float, iou: float) -> bytes:
+    name_b = image_name.encode('utf-8')
+    model_b = model_name.encode('utf-8')
+    if len(name_b) > 255 or len(model_b) > 255:
+        raise ValueError('image_name and model_name must be <= 255 bytes')
 
-    client.send(send_length)
-    client.send(message)
+    # print(f"build: {image_name} {model_name} {width} {height} {conf} {iou}")
+    
+    # build image packet which is img_metadata followed by img_bytes then name_b(ytes) and model bytes
+    img_meta = struct.pack(IMAGE_MSG_HEADER_FORMAT, int(width), int(height), int(conf), int(iou), len(img_bytes), len(name_b), len(model_b))
+    body = img_meta + img_bytes + name_b + model_b
 
-if __name__ == "__main__":
+    # now get the length of the full body of the packet
+    packet_length = PACKET_HEADER_SIZE + len(body)
+
+    # now build header
+    header = struct.pack(PACKET_HEADER_FORMAT, packet_length, IMAGE_MSG, 0, 0, 0)
+
+    # add the header to the start of the packet and body after, as we read the header to understand what we need to read from the body.
+    return header + body
+
+
+def send(image_path: str, model_name: str, conf: float = 0.5, iou: float = 0.5):
     cfg, models = Config("config.ini").getAll()
+    host = cfg.get("Host", "[::]")
+    port = cfg.get("Port", "8089")
+
+    img_path = Path(image_path)
+    img_bytes = img_path.read_bytes()
+    width = 640
+    height = 640
+
+    packet = build_image_packet(img_bytes, img_path.name, model_name, width, height, conf, iou)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        HOST = cfg.get("Host", "[::]")
-        PORT = cfg.get("Port", "8089")
-
-        connection_time = time.time()
-        s.connect((HOST, int(PORT)))
-        print(f"Took {round((time.time() - connection_time) * 1000, 3)}ms to connect")
+        s.connect((host, int(port)))
+        s.sendall(packet)
 
 
-        amount = 0
-        while amount < 50:
-            message_start = time.time()
-            send("Hello!", s)
-            send(DISCONNECT_MESSAGE, s)
-            print(f"Took {round((time.time() - message_start) * 1000, 3)}ms to send message")
+if __name__ == "__main__":
+    amount = 0
+    while amount < 50:
+        start = time.time()
+        send("./input/test.png", "test")
+        print(f"time taken: {time.time() - start}")
 
-            amount += 1 
-
-        # s.sendall(b"Hello, world")
-        # data = s.recv(1024)
+        amount += 1
 
 
