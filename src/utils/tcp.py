@@ -3,6 +3,8 @@ import configparser
 import struct
 import threading
 from src.utils.response import Response
+from PIL import Image
+import io
 
 # first message to the client is going to be a header thats 8 in length
 FORMAT = 'utf-8'
@@ -18,9 +20,8 @@ class TCPListen:
         self.config = cfg
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def listen(self):
+    def listen(self, model):
         try:
-
             # binding to localhost is supposedly faster as it bypasses some platform networking code.
             # however, to be seen externally, we need to bind to host: 0.0.0.0
             host = self.config.get("Host", "[::]")
@@ -33,7 +34,7 @@ class TCPListen:
             print(f"listening on {host, port}")
 
             while True:
-                self.accept_wrapper(self.sock)
+                self.accept_wrapper(self.sock, model)
 
         finally:
             self.sock.close()
@@ -73,6 +74,8 @@ class TCPListen:
             image_length, image_name_length, model_name_length
         ) = struct.unpack_from(IMAGE_MSG_HEADER_FORMAT, body, 0)
 
+        print(confidence_threshold, iou_threshold)
+
         offset = IMAGE_MSG_HEADER_SIZE
         image = body[offset:offset+image_length]
         offset += image_length
@@ -81,9 +84,11 @@ class TCPListen:
         model_name = body[offset:offset+model_name_length].decode(FORMAT)
         offset += model_name_length
 
+        print(confidence_threshold)
+
         return image_width, image_height, confidence_threshold, iou_threshold, image_length, image_name, model_name, image
 
-    def handle_client(self, conn, addr):
+    def handle_client(self, conn, addr, model):
         try:
             # this will run concurrently
             print(f"New connection {addr} connected")
@@ -94,7 +99,7 @@ class TCPListen:
                 if not header:
                     break
 
-                packet_length, msg_type, _, _, _ = header            
+                packet_length, msg_type, _, _, _ = header         
 
                 if msg_type == IMAGE_MSG:
                     image_unpacked = self.unpack_image(conn, addr, packet_length)
@@ -102,6 +107,25 @@ class TCPListen:
                         break
 
                     # TODO: process image here
+                    (
+                        image_width, image_height, conf, iou, img_len, img_name, model_name, imageData
+                    ) = image_unpacked
+
+                    img = Image.open(io.BytesIO(imageData))
+
+                    results = model.predict(
+                        img,
+                        imgsz=(640, 640),
+                        conf=conf,
+                        iou=iou,
+                        verbose=True,
+                        save=False,
+                        project="./output",
+                        name=img_name, # this stops subdirectories being created, when save is true
+                        # device=self.config.get("Device", "") # you will want to change this to match your hardware
+                    )
+
+                    print(results)
 
                     # TODO: send response here
                     response = Response()
@@ -130,11 +154,11 @@ class TCPListen:
         finally:
             conn.close()
 
-    def accept_wrapper(self, sock):
+    def accept_wrapper(self, sock, model):
         conn, addr = sock.accept() # blocking
         print(f"Accepted connection from {addr}")
 
-        thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+        thread = threading.Thread(target=self.handle_client, args=(conn, addr, model))
         thread.start()
 
         print(f"Active threads {threading.active_count() - 1}")

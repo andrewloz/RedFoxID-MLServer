@@ -31,7 +31,7 @@ def build_image_packet(img_bytes: bytes, image_name: str, model_name: str, width
     # print(f"build: {image_name} {model_name} {width} {height} {conf} {iou}")
     
     # build image packet which is img_metadata followed by img_bytes then name_b(ytes) and model bytes
-    img_meta = struct.pack(IMAGE_MSG_HEADER_FORMAT, int(width), int(height), int(conf), int(iou), len(img_bytes), len(name_b), len(model_b))
+    img_meta = struct.pack(IMAGE_MSG_HEADER_FORMAT, width, height, conf, iou, len(img_bytes), len(name_b), len(model_b))
     body = img_meta + img_bytes + name_b + model_b
 
     # now get the length of the full body of the packet
@@ -43,8 +43,7 @@ def build_image_packet(img_bytes: bytes, image_name: str, model_name: str, width
     # add the header to the start of the packet and body after, as we read the header to understand what we need to read from the body.
     return header + body
 
-
-def send(image_path: str, model_name: str, times: int = 50, conf: float = 0.5, iou: float = 0.5):
+def send(image_path: str, model_name: str, times: int = 50, conf: float = 0.7, iou: float = 0.7):
     cfg, models = Config("config.ini").getAll()
     host = cfg.get("Host", "[::]")
     port = cfg.get("Port", "8089")
@@ -67,11 +66,10 @@ def send(image_path: str, model_name: str, times: int = 50, conf: float = 0.5, i
 
             print(f"time taken: {round((time.time() - start) * 1000, 4)}ms")
 
-
 def listen_response(conn):
     header = recv_all(conn, PACKET_HEADER_SIZE) # blocking
     if header is None:
-        print(f"Failed to read header from {addr}")
+        print(f"Failed to read header from server")
         return
 
     packet_length, msg_type, _, _, _ = struct.unpack(PACKET_HEADER_FORMAT, header)
@@ -81,12 +79,12 @@ def listen_response(conn):
 
         meta_detections_length = packet_length - PACKET_HEADER_SIZE
         if meta_detections_length < DETECTIONS_META_SIZE + DETECTION_SIZE:
-            print("DETECTION packet is smaller than detection header length from {addr}")
+            print("DETECTION packet is smaller than detection header length from server")
             return
 
         body = recv_all(conn, meta_detections_length)
         if body is None:
-            print(f"Failed to read full DETECTION body from {addr}")
+            print(f"Failed to read full DETECTION body from server")
             return
 
         (
@@ -106,9 +104,7 @@ def listen_response(conn):
             x1, y1, x2, y2, conf, cls_id, _rsv = struct.unpack_from(DETECTION_FORMAT, body, start)
             detections.append((x1, y1, x2, y2, conf, cls_id))
 
-
-
-        print(image_width, image_height, inference_time, detection_count, image_name_length, model_name_length, model_name, image_name)
+        # print(image_width, image_height, inference_time, detection_count, image_name_length, model_name_length, model_name, image_name)
         print(f"DETECTIONS: count={len(detections)}")
 
 # returns None if failed to read full length
