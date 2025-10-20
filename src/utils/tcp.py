@@ -2,6 +2,7 @@ import socket
 import configparser
 import struct
 import threading
+from src.utils.response import Response
 
 # first message to the client is going to be a header thats 8 in length
 FORMAT = 'utf-8'
@@ -86,6 +87,14 @@ class TCPListen:
                     # TODO: process image here
 
                     # TODO: send response here
+                    response = Response()
+                    responsePacket = response.build_detections_packet(
+                        640, 640, 3, "test", "test", [
+                            (50.0, 40.0, 180.0, 160.0, 0.92, 1)
+                        ]
+                    )
+
+                    conn.sendall(responsePacket)
 
 
                 else:

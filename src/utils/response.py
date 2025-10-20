@@ -7,6 +7,7 @@
 import struct
 
 PACKET_HEADER_FORMAT = '<IBBBB'
+PACKET_HEADER_SIZE = struct.calcsize(PACKET_HEADER_FORMAT)
 DETECTIONS_MSG = 2
 
 DETECTIONS_META_FORMAT = '<iiIIBB'
@@ -23,7 +24,7 @@ class Response:
         #  DETECTION_RECORDS[] - x1, y1, x2, y2, confidence, class_id, rsv1
         pass
 
-    def build_detections_packet(width, height, infer_ms, image_name, model_name, detections):
+    def build_detections_packet(self, width, height, infer_ms, image_name, model_name, detections):
         # detections: iterable of (x_min, y_min, x_max, y_max, confidence, class_id)
         name_b = image_name.encode('utf-8')
         model_b = model_name.encode('utf-8')
