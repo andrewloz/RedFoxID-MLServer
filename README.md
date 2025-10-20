@@ -35,7 +35,7 @@ under the InferenceServer section.
 
 # Profiling
 We can use pythons built in profiling tool `cProfile` like so  
-`python -m cProfile -o server_profile.prof`  
+`python -m cProfile -o server_profile.prof server.py`  
 
 And then visualise the results with a tool called snakeviz like so  
 ```
