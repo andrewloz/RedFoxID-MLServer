@@ -3,8 +3,9 @@ import signal
 import sys
 import atexit
 import yappi
-
-from server import serve
+from src.utils.tcp import TCPListen
+from src.config import Config
+from ultralytics import YOLO
 
 OUTPUT = "server_profile.prof"
 
@@ -36,6 +37,20 @@ if __name__ == "__main__":
         pass
 
     try:
-        serve()
+        cfg, models = Config("config.ini").getAll()
+
+        tcp = TCPListen(cfg)
+
+        # model
+        model = YOLO("./model/side_plane_model_v26.engine", task="detect")
+
+        results = model.predict(
+            imgsz=(640, 640),
+            verbose=True,
+            save=False,
+            # device=self.config.get("Device", "") # you will want to change this to match your hardware
+        )
+
+        tcp.listen(model)
     finally:
         dump_stats()

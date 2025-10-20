@@ -28,7 +28,7 @@ def build_image_packet(img_bytes: bytes, image_name: str, model_name: str, width
     if len(name_b) > 255 or len(model_b) > 255:
         raise ValueError('image_name and model_name must be <= 255 bytes')
 
-    print(f"build: {image_name} {model_name} {width} {height} {conf} {iou}")
+    # print(f"build: {image_name} {model_name} {width} {height} {conf} {iou}")
     
     # build image packet which is img_metadata followed by img_bytes then name_b(ytes) and model bytes
     img_meta = struct.pack(IMAGE_MSG_HEADER_FORMAT, width, height, conf, iou, len(img_bytes), len(name_b), len(model_b))
@@ -104,7 +104,7 @@ def listen_response(conn):
             x1, y1, x2, y2, conf, cls_id, _rsv = struct.unpack_from(DETECTION_FORMAT, body, start)
             detections.append((x1, y1, x2, y2, conf, cls_id))
 
-        print(image_width, image_height, inference_time, detection_count, image_name_length, model_name_length, model_name, image_name)
+        # print(image_width, image_height, inference_time, detection_count, image_name_length, model_name_length, model_name, image_name)
         print(f"DETECTIONS: count={len(detections)}")
 
 # returns None if failed to read full length
