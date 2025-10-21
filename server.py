@@ -8,7 +8,6 @@ import cv2
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
-import configparser
 import os
 
 
