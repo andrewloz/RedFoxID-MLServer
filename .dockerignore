@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.build/
+dist/
+.env
+.venv
+.git
+.gitignore
+# If you generate Python from protos locally, you can still copy them:
+# app/*_pb2*.py
+
+!config.ini
