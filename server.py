@@ -27,6 +27,9 @@ class DetectObjectService():
 
             if not os.path.exists(m):
                 raise FileNotFoundError(f"{m} does not exist!")
+            
+            if name == "":
+                name = m
 
             print(f"loading model {name}")
             

@@ -70,11 +70,24 @@ with that installed you can then run the container with --gpus all set and it sh
 
 so full run command should be 
 
-`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" --gpus all --rm -p 50051:50051 --name inference-server rfid-inference-server`
+`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" -v "$(pwd)/model:/app/model/:ro" --gpus all --rm -p 50051:50051 --name inference-server rfid-inference-server`
 
 ### Notes
 you might want to remove the --rm if you don't want to install the python deps every time.
 
 
 ## Intel - OpenVINO
+the run command is mostly the same, apart from changing --gpus all to --device option
+
+cpu doesn't need the --device option
+
+for intel gpu
+--device=/dev/dri
+
+for intel npu
+--device=/dev/accel
+
+`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" -v "$(pwd)/model:/app/model/:ro" --device={replaceWithDevicePathAbove} -d -p 50051:50051 --name inference-server rfid-inference-server`
+
+
 
