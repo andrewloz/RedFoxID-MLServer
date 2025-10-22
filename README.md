@@ -43,3 +43,16 @@ And then visualise the results with a tool called snakeviz like so
 pip install snakeviz
 snakeviz server_profile.prof
 ```
+
+# Docker
+To get docker using the correct device:
+
+## NVIDIA
+you need to install the nvidia-container-toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+with that installed you can then run the container with --gpus all set and it should work.
+
+so full run command should be 
+
+`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" --gpus all --rm -p 50051:50051 my-grpc-server`
+
