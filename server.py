@@ -86,7 +86,7 @@ class DetectObjectService():
             return pb.ResponsePayload(objects=[])
 
 def serve():
-    cfg, models = Config("config.ini").getAll()
+    cfg, _ = Config("config.ini").getAll()
     port = cfg.get("Port", "50051")
     host = cfg.get("Host", "[::]")
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))))
