@@ -31,8 +31,10 @@ class DetectObjectService():
             print(f"loading model {name}")
             
             self.models[name] = YOLO(f"{m}", task="detect")
+            device = self.config.get('Device', '')
+            print(f"Device configure: {device}")
             # warm up the models, uses an asset from the ultralytics package to test, you will see warning in console.
-            self.models[name].predict()
+            self.models[name].predict(device=device)
 
     def _get_model(self, name):
         if name not in self.models:
