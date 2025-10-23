@@ -7,7 +7,7 @@ class Config:
         with open(configPath, "r") as f:
             self.config.read_file(f)
 
-        models = self.config["InferenceServer"].get("Models", [])
+        models = self.config["InferenceServer"].get("Models", "")
         self.models = [m.strip() for m in models.split(",") if m.strip()]
 
         # TODO: add checks here for existance of InferenceServer and Models fields

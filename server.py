@@ -8,7 +8,6 @@ import cv2
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
-import configparser
 import os
 
 
@@ -28,12 +27,17 @@ class DetectObjectService():
 
             if not os.path.exists(m):
                 raise FileNotFoundError(f"{m} does not exist!")
+            
+            if name == "":
+                name = m
 
             print(f"loading model {name}")
             
             self.models[name] = YOLO(f"{m}", task="detect")
+            device = self.config.get('Device', '')
+            print(f"Device configure: {device}")
             # warm up the models, uses an asset from the ultralytics package to test, you will see warning in console.
-            self.models[name].predict()
+            self.models[name].predict(device=device)
 
     def _get_model(self, name):
         if name not in self.models:
@@ -87,7 +91,7 @@ class DetectObjectService():
             return pb.ResponsePayload(objects=[])
 
 def serve():
-    cfg, models = Config("config.ini").getAll()
+    cfg, _ = Config("config.ini").getAll()
     port = cfg.get("Port", "50051")
     host = cfg.get("Host", "[::]")
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))))

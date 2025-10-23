@@ -2,7 +2,7 @@
 Welcome to the RedfoxID inference server for computer vision models.
 
 ### Create environment
-`python3.10 -m venv venv`
+`python3.9 -m venv venv`
 
 ### Activate environment
 `source ./venv/bin/activate`
@@ -27,6 +27,19 @@ to check it worked, you can run the devices.py script.
 add your onnx model to the models directory, you can add any images you want to test by adding to the `./input` directory. Then running the `server.py` followed by the `test_client.py` will take you through a gRPC request cycle of each `.png` you have added to the input directory, and log various perforamnce metrics. please take a look at `test_client.py` to see what metrics you would be seeing here. 
 
 
+### Setting up OpenVINO runtime
+https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-apt.html
+
+don't forget to do the additional configuration here: https://docs.openvino.ai/2025/get-started/install-openvino/configurations/configurations-intel-gpu.html
+and install the extra deps:
+`sudo apt-get install -y ocl-icd-libopencl1 intel-opencl-icd intel-level-zero-gpu level-zero`
+
+you may need to install driver libraries from here: https://dgpu-docs.intel.com/driver/installation.html#ubuntu#ubuntu
+
+double check this reddit post if you struggle to install package repository for you ubuntu system: https://github.com/intel/intel-extension-for-pytorch/issues/365
+
+if selecting a device for openVINO, you can use intel:gpu, intel:npu and intel:cpu with the ultralytics library
+
 # Configs
 
 you can copy the example-config.ini and rename it to config.ini to start with. you will want to be changing values 
@@ -43,3 +56,36 @@ And then visualise the results with a tool called snakeviz like so
 pip install snakeviz
 snakeviz server_profile.prof
 ```
+
+# Docker
+To get docker using the correct device:
+
+building command
+`docker build -t rfid-inference-server .`
+
+## NVIDIA
+you need to install the nvidia-container-toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+with that installed you can then run the container with --gpus all set and it should work.
+
+so full run command should be 
+
+`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" -v "$(pwd)/model:/app/model/:ro" --gpus all --rm -p 50051:50051 --name inference-server rfid-inference-server`
+
+### Notes
+you might want to remove the --rm if you don't want to install the python deps every time.
+
+
+## Intel - OpenVINO
+the run command is mostly the same, apart from changing --gpus all to --device option
+
+for intel gpu
+--device=/dev/dri
+
+for intel npu
+--device=/dev/accel
+
+`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" -v "$(pwd)/model:/app/model/:ro" --device={replaceWithDevicePathAbove} -d -p 50051:50051 --name inference-server rfid-inference-server`
+
+
+
