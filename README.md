@@ -79,8 +79,6 @@ you might want to remove the --rm if you don't want to install the python deps e
 ## Intel - OpenVINO
 the run command is mostly the same, apart from changing --gpus all to --device option
 
-cpu doesn't need the --device option
-
 for intel gpu
 --device=/dev/dri
 
