@@ -31,18 +31,18 @@ class OpenvinoInfer:
      
 
     def parse_image(self, png_bytes):  
-        img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
-        arr = np.asarray(img)
+         # Decode PNG bytes to RGB HWC uint8
+        img = Image.open(io.BytesIO(png_bytes)).convert("RGB")  # (H,W,3) uint8
+        arr = np.asarray(img, dtype=np.uint8)
+        
+        if arr.shape[:2] != (640, 640):
+            raise ValueError(f"Expected 640x640, got {arr.shape[:2]}")
 
-        # Decode PNG bytes to RGB HWC uint8
-        arr = np.asarray(Image.open(io.BytesIO(png_bytes)).convert("RGB"))  # (H,W,3) uint8
-        assert arr.shape[:2] == (640, 640), f"Expected 640x640, got {arr.shape[:2]}"
-        # HWC -> CHW -> NCHW, and normalize to [0,1] float32
-        x = np.transpose(arr, (2, 0, 1))[None].astype(np.float32) / 255.0   # (1,3,640,640)
-        x = np.ascontiguousarray(x)
+        # HWC -> NCHW float32 [0,1]
+        x = arr.astype(np.float32) / 255.0                 # (H,W,3) float32
+        x = np.transpose(x, (2, 0, 1))[None]               # (1,3,640,640)
+        return np.ascontiguousarray(x)                   
 
-        return x
-       
     def _sigmoid(self, x):
         return 1.0 / (1.0 + np.exp(-x))
 
@@ -126,9 +126,15 @@ class OpenvinoInfer:
         keep_idx = self._nms_xyxy(boxes_xyxy, scores, iou_thresh=iou_thresh, topk=topk_per_stage)
         return boxes_xyxy[keep_idx], scores[keep_idx]
 
-    def infer(self, png_bytes):
+    def predict(
+            self,
+            source=None,
+            **kwargs,
+        ):
+
+        print(kwargs['device'])
         self.set_input_shape()
-        x = self.parse_image(png_bytes)
+        x = self.parse_image(source)
     
         infer_request = self.model.create_infer_request()
         infer_request.infer({self.input_name: x})

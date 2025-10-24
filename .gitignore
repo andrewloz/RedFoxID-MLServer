@@ -7,5 +7,5 @@ __pycache__
 *.pt
 
 config.ini
-
+!input/test1.png
 *.prof

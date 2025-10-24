@@ -1,4 +1,3 @@
-from ultralytics import YOLO
 from concurrent import futures
 import logging
 
@@ -16,13 +15,14 @@ from src.config import Config
 class DetectObjectService():
     def __init__(self):
         # WIP for testing openvino inference
-        # with open("input/test1.png", "rb") as f:
-        #     png_bytes = f.read() 
-
+        with open("input/test1.png", "rb") as f:
+            png_bytes = f.read() 
 
         cfg, models = Config("config.ini").getAll()
         self.config = cfg
         self.models = {}
+        self.inferenceLib = cfg.get("InferenceLibrary", "ultralytics")
+        print(f"Using library: {self.inferenceLib}")
         print("Configuration:", dict(self.config))
         print("Available Models:",self.models)
 
@@ -34,14 +34,24 @@ class DetectObjectService():
             
             if name == "":
                 name = m
-
-            print(f"loading model {name}")
             
-            self.models[name] = YOLO(f"{m}", task="detect")
+            # TODO: this technically could be configured per model, setting the runtime for each model is possible
+            # but for now, this is not supported, as its unlikely it will be needed.
+            print(f"loading model {name}")
+            if self.inferenceLib == "openvino":
+                from src.inference.openvino_inf import OpenvinoInfer
+                self.models[name] = OpenvinoInfer()
+            else:
+                # if you get syntax import error please ignore.
+                from ultralytics import YOLO
+                self.models[name] = YOLO(f"{m}", task="detect")
+                np_arr = np.frombuffer(png_bytes, dtype=np.uint8)
+                png_bytes = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+ 
             device = self.config.get('Device', '')
             print(f"Device configure: {device}")
-            # warm up the models, uses an asset from the ultralytics package to test, you will see warning in console.
-            self.models[name].predict(device=device)
+            self.models[name].predict(png_bytes, device=device)
 
     def _get_model(self, name):
         if name not in self.models:
@@ -57,9 +67,13 @@ class DetectObjectService():
                 raise Exception("No model_name in payload loaded, please provide model_name")
             
             model = self._get_model(request.model_name)
-
-            np_arr = np.frombuffer(request.image_png_bytes, dtype=np.uint8)
-            img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            
+            # open vino requires raw image bytes, as it does its own image processing
+            if self.inferenceLib == "openvino":
+                img = request.image_png_bytes
+            else:
+                np_arr = np.frombuffer(request.image_png_bytes, dtype=np.uint8)
+                img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
             if img is None:
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
@@ -68,7 +82,8 @@ class DetectObjectService():
 
             results = model.predict(
                 img,
-                imgsz=(img.shape[0], img.shape[1]),
+                imgsz=(640, 640),
+                # imgsz=(img.shape[0], img.shape[1]),
                 conf=request.confidence_threshold,
                 iou=request.iou_threshold,
                 verbose=bool(int(self.config.get("Verbose", "0"))),
