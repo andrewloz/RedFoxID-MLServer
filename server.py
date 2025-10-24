@@ -10,12 +10,16 @@ import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
 import os
 
-
 from server_utils import results_to_proto_boxes
 from src.config import Config
 
 class DetectObjectService():
     def __init__(self):
+        # WIP for testing openvino inference
+        # with open("input/test1.png", "rb") as f:
+        #     png_bytes = f.read() 
+
+
         cfg, models = Config("config.ini").getAll()
         self.config = cfg
         self.models = {}
