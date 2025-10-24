@@ -1,11 +1,95 @@
 import openvino as ov
 from PIL import Image
 import io
-import numpy as np
+import numpy as np   
+
+def _sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
+
+def _cxcywh_to_xyxy(b):
+    # b: (N,4) with [cx, cy, w, h]
+    x1 = b[:, 0] - b[:, 2] / 2
+    y1 = b[:, 1] - b[:, 3] / 2
+    x2 = b[:, 0] + b[:, 2] / 2
+    y2 = b[:, 1] + b[:, 3] / 2
+    return np.stack([x1, y1, x2, y2], axis=1)
+
+def _valid_ratio_xyxy(boxes, img_w=640, img_h=640):
+    # how many boxes look sane: x1<x2, y1<y2 and inside image (with small slack)
+    if boxes.size == 0:
+        return 0.0
+    x1, y1, x2, y2 = boxes.T
+    ok = (x2 > x1) & (y2 > y1) & \
+         (x1 >= -5) & (y1 >= -5) & (x2 <= img_w+5) & (y2 <= img_h+5)
+    return ok.mean()
+
+def _nms_xyxy(boxes, scores, iou_thresh=0.5, topk=300):
+    # minimal NMS in NumPy
+    if boxes.size == 0:
+        return np.empty((0,), dtype=np.int64)
+    x1, y1, x2, y2 = boxes.T
+    areas = (x2 - x1) * (y2 - y1)
+    order = scores.argsort()[::-1][:topk]
+    keep = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(i)
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+        w = np.maximum(0.0, xx2 - xx1)
+        h = np.maximum(0.0, yy2 - yy1)
+        inter = w * h
+        iou = inter / (areas[i] + areas[order[1:]] - inter + 1e-9)
+        order = order[1:][iou <= iou_thresh]
+    return np.array(keep, dtype=np.int64)
+
+def decode_yolo_5x8400(
+    out0, img_wh=(640, 640), conf_thresh=0.25, iou_thresh=0.5, topk_per_stage=300
+):
+    """
+    out0: (1, 5, 8400) float32
+    returns: boxes_xyxy (M,4), scores (M,)
+    """
+    assert out0.ndim == 3 and out0.shape[1] == 5, f"Unexpected shape {out0.shape}"
+    pred = out0[0].T  # (8400, 5)
+
+    # confidence: use as-is if already in [0,1], else sigmoid
+    raw_conf = pred[:, 4]
+    if raw_conf.min() >= 0.0 and raw_conf.max() <= 1.0:
+        scores = raw_conf
+    else:
+        scores = _sigmoid(raw_conf)
+
+    # quick pre-filter to reduce NMS cost
+    keep = scores >= conf_thresh
+    pred = pred[keep]
+    scores = scores[keep]
+    if pred.size == 0:
+        return np.empty((0,4), np.float32), np.empty((0,), np.float32)
+
+    coords = pred[:, :4]
+
+    # Try two interpretations for the 4 numbers and auto-select the plausible one
+    xyxy_as_is = coords.copy()
+    xyxy_from_cxcywh = _cxcywh_to_xyxy(coords)
+    r1 = _valid_ratio_xyxy(xyxy_as_is, *img_wh)
+    r2 = _valid_ratio_xyxy(xyxy_from_cxcywh, *img_wh)
+    boxes_xyxy = xyxy_as_is if r1 >= r2 else xyxy_from_cxcywh
+
+    # clip to image bounds
+    boxes_xyxy[:, [0, 2]] = np.clip(boxes_xyxy[:, [0, 2]], 0, img_wh[0])
+    boxes_xyxy[:, [1, 3]] = np.clip(boxes_xyxy[:, [1, 3]], 0, img_wh[1])
+
+    # NMS
+    keep_idx = _nms_xyxy(boxes_xyxy, scores, iou_thresh=iou_thresh, topk=topk_per_stage)
+    return boxes_xyxy[keep_idx], scores[keep_idx]
+
 
 if __name__ == "__main__":
     
-    with open("input/test.png", "rb") as f:
+    with open("input/test1.png", "rb") as f:
         png_bytes = f.read() 
         
 
@@ -48,9 +132,12 @@ if __name__ == "__main__":
     outs = []
     for i, out_port in enumerate(model.outputs):
         out_arr = infer_request.get_output_tensor(i).data
-        print(f"out{i} -> shape: {out_arr.shape}, dtype: {out_arr.dtype}")
-        outs.append(out_arr)
+        boxes, scores = decode_yolo_5x8400(out_arr, img_wh=(640, 640), conf_thresh=0.25, iou_thresh=0.5)
+        print("detections:", len(boxes))
+        print("first 5:", np.c_[boxes[:5], scores[:5]])
 
-    print(outs)
+        # print(f"out{i} -> shape: {out_arr.shape}, dtype: {out_arr.dtype}")
+        # outs.append(out_arr)
 
-
+    # print(outs)
+ 
