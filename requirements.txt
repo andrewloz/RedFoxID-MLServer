@@ -8,3 +8,4 @@ protobuf==6.33.0
 onnxruntime
 onnx
 openvino
+openvino-dev
