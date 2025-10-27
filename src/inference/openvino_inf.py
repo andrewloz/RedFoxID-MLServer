@@ -7,8 +7,9 @@ import numpy as np
 class OpenvinoInfer:
     def __init__(self):
         # initialise model
-        core = ov.Core()
-        self.model = core.compile_model("model/side_plane_model_v26_openvino_model/side_plane_model_v26.xml", "AUTO")
+        # core = ov.Core()
+        # self.model = core.compile_model("model/side_plane_model_v26_openvino_model/side_plane_model_v26.xml", "AUTO")
+        print("deleteme")
 
     def set_input_shape(self):
         input_port = self.model.input(0)

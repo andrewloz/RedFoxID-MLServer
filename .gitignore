@@ -9,3 +9,5 @@ __pycache__
 config.ini
 !input/test1.png
 *.prof
+
+.vscode/*
