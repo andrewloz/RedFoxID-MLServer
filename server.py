@@ -41,6 +41,9 @@ class DetectObjectService():
             if self.inferenceLib == "openvino":
                 from src.inference.openvino_inf import OpenvinoInfer
                 self.models[name] = OpenvinoInfer()
+            elif self.inferenceLib == "onnx":
+                from src.inference.onnx_inf import OnnxInfer
+                self.models[name] = OnnxInfer()
             else:
                 # if you get syntax import error please ignore.
                 from ultralytics import YOLO
@@ -69,7 +72,7 @@ class DetectObjectService():
             model = self._get_model(request.model_name)
             
             # open vino requires raw image bytes, as it does its own image processing
-            if self.inferenceLib == "openvino":
+            if self.inferenceLib == "openvino" or self.inferenceLib == "onnx":
                 img = request.image_png_bytes
             else:
                 np_arr = np.frombuffer(request.image_png_bytes, dtype=np.uint8)
@@ -93,15 +96,19 @@ class DetectObjectService():
                 device=self.config.get("Device", "") # you will want to change this to match your hardware
             )
 
+            print("results type: ", type(results))
+
             # force flattening if output is true
             if bool(int(self.config.get("SaveImg", "0"))):
                 from flatten_output_dir import flatten
                 from pathlib import Path
 
                 flatten(Path("./output") / "Images")
-
-            objects = results_to_proto_boxes(results[0], pb)
-            return objects
+            
+            if self.inferenceLib == "ultralytics":
+                results = results_to_proto_boxes(results[0], pb)
+            
+            return results
 
         except Exception as e: 
             print(e)
