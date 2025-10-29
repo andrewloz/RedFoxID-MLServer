@@ -29,14 +29,25 @@ class OnnxInfer:
         # Resize the image to the model's input size
         image = image.resize((self.input_width, self.input_height))
 
+        # img[height,width] = 3 channels of rgb [r,g,b]
         # Convert image to numpy array and normalize pixel values
-        image = np.array(image).astype(np.float32) / 255.0
+        image = np.array(image).astype(np.float32) / 255.0 # go through each key [Height, Width] and divide each value in [r,g,b] by 255
 
         # Change dimensions from HWC to CHW
-        image = np.transpose(image, (2, 0, 1))
+        image = np.transpose(image, (2, 0, 1)) 
+        # transposes array to the following structure
+        # image[0, height, width] = red channel value (divided by 255)
+        # image[1, height, width] = green channel value (divided by 255)
+        # image[2, height, width] = blue channel value (divided by 255)
+
 
         # Add batch dimension
-        image = np.expand_dims(image, axis=0)
+        image = np.expand_dims(image, axis=0) # puts a new dimenion on the axis of 0
+        # image[0, 0, height, width] = red channel value (divided by 255)
+        # image[0, 1, height, width] = green channel value (divided by 255)
+        # image[0, 2, height, width] = blue channel value (divided by 255)
+
+        # now its in the correct format for rfdetr (0, 3, H, W) (batch, channel, height, width)
 
         return np.ascontiguousarray(image)
 
