@@ -34,6 +34,8 @@ class OnnxInfer:
         image = np.array(image).astype(np.float32) / 255.0 # go through each key [Height, Width] and divide each value in [r,g,b] by 255
         # we divide by 255 because the model is trained this way, its trained on rgb values where inputs are 0-1 so we 
         # need to reflect that.
+        # HOWEVER, this might be different if using tensorRT or openVINO as the export might bake the RGB calculation into the graph and accept the raw uint8
+        # of the original RGB values.
 
         # Change dimensions from HWC to CHW
         image = np.transpose(image, (2, 0, 1)) 
