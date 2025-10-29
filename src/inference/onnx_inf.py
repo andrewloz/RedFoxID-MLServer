@@ -12,7 +12,7 @@ class RFDETRInfer:
     def __init__(self):
         # initialise model
         self.model = rt.InferenceSession(
-            "model/rfdetr.onnx",
+            "model/side_plane_model_detr.onnx",
             providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
         )
 
@@ -68,136 +68,82 @@ class RFDETRInfer:
 
         return outputs 
 
-    def post_process(self, outputs, confidence_threshold=0.3, img_w=None, img_h=None, nms_iou_threshold=0.8):
+    def post_process(self, outputs, confidence_threshold, img_w, img_h):
         """
-        outputs: [boxes, logits] from RFDETR
-            boxes  -> (1, N, 4) in [cx, cy, w, h] normalized 0..1
-            logits -> (1, N, C) raw scores per class (not softmaxed)
-        confidence_threshold: min class probability to keep a detection
-        img_w, img_h: if both given, we'll return pixel coords.
-                      if not given, we'll return normalized coords.
+        So 
         """
 
         boxes_raw, logits_raw = outputs  # each is a np.ndarray
         boxes = boxes_raw[0]    # (N,4)
         logits = logits_raw[0]  # (N,C)
 
-        # ---- softmax over classes ----
-        # subtract max per row for numerical stability
-        shifted = logits - np.max(logits, axis=1, keepdims=True)
-        exp_vals = np.exp(shifted)
-        probs = exp_vals / np.sum(exp_vals, axis=1, keepdims=True)  # (N,C)
+        wheel_logits = logits[:, 1]
+        wheel_probs = self.sigmoid(wheel_logits) # how wheel like is query i
+        keep_mask = wheel_probs > confidence_threshold
 
-        # best class + confidence
-        best_class_indices = np.argmax(probs, axis=1)       # (N,)
-        best_class_confidences = np.max(probs, axis=1)      # (N,)
-
-        # filter by confidence
-        keep_mask = best_class_confidences > confidence_threshold
-        best_class_indices = best_class_indices[keep_mask]
-        best_class_confidences = best_class_confidences[keep_mask]
-        boxes = boxes[keep_mask]
+        boxes_kept = boxes[keep_mask]
+        wheel_probs_kept = wheel_probs[keep_mask]
 
         # boxes is [cx, cy, w, h] normalized.
-        cx = boxes[:, 0]
-        cy = boxes[:, 1]
-        w  = boxes[:, 2]
-        h  = boxes[:, 3]
+        cx = boxes_kept[:, 0]
+        cy = boxes_kept[:, 1]
+        w  = boxes_kept[:, 2]
+        h  = boxes_kept[:, 3]
 
-        x_min = cx - 0.5 * w
-        y_min = cy - 0.5 * h
-        x_max = cx + 0.5 * w
-        y_max = cy + 0.5 * h
+        x1 = cx - 0.5 * w
+        y1 = cy - 0.5 * h
+        x2 = cx + 0.5 * w
+        y2 = cy + 0.5 * h
 
-        # If img_w/img_h are provided, scale to pixel coords
-        if img_w is not None and img_h is not None:
-            x_min_pix = x_min * img_w
-            y_min_pix = y_min * img_h
-            x_max_pix = x_max * img_w
-            y_max_pix = y_max * img_h
+        x1_pix = x1 * img_w
+        y1_pix = y1 * img_h
+        x2_pix = x2 * img_w
+        y2_pix = y2 * img_h
 
-            bboxes_out = np.stack([x_min_pix, y_min_pix, x_max_pix, y_max_pix], axis=1)
-        else:
-            # keep normalized [0..1] xyxy
-            bboxes_out = np.stack([x_min, y_min, x_max, y_max], axis=1)
-
-        # build final list
+        # 6. build detections list
         detections = []
-        for i in range(len(best_class_indices)):
+        for i in range(len(wheel_probs_kept)):
             detections.append({
-                "class": int(best_class_indices[i]),
-                "confidence": float(best_class_confidences[i]),
-                "bbox": bboxes_out[i].astype(float).tolist()  # [x1,y1,x2,y2]
+                "class": "wheels",
+                "confidence": float(wheel_probs_kept[i]),
+                "bbox": [
+                    float(x1_pix[i]),
+                    float(y1_pix[i]),
+                    float(x2_pix[i]),
+                    float(y2_pix[i]),
+                ],  # [x1,y1,x2,y2] in pixels
             })
 
-        return self.nms_detections(detections, iou_threshold=nms_iou_threshold)
+        return detections
 
-    
-    def iou_xyxy(self, box_a, box_b):
-        """
-        box_a, box_b: [x1,y1,x2,y2]
-        returns IoU (float 0..1)
-        """
-        ax1, ay1, ax2, ay2 = box_a
-        bx1, by1, bx2, by2 = box_b
+    def sigmoid(self, x):
+        z = np.exp(-np.abs(x))
+        return np.where(x >= 0, 1 / (1 + z), z / (1 + z))
+        
+    # def iou_xyxy(self, box_a, box_b):
+    #     """
+    #     box_a, box_b: [x1,y1,x2,y2]
+    #     returns IoU (float 0..1)
+    #     """
+    #     ax1, ay1, ax2, ay2 = box_a
+    #     bx1, by1, bx2, by2 = box_b
 
-        inter_x1 = max(ax1, bx1)
-        inter_y1 = max(ay1, by1)
-        inter_x2 = min(ax2, bx2)
-        inter_y2 = min(ay2, by2)
+    #     inter_x1 = max(ax1, bx1)
+    #     inter_y1 = max(ay1, by1)
+    #     inter_x2 = min(ax2, bx2)
+    #     inter_y2 = min(ay2, by2)
 
-        inter_w = max(0.0, inter_x2 - inter_x1)
-        inter_h = max(0.0, inter_y2 - inter_y1)
-        inter_area = inter_w * inter_h
+    #     inter_w = max(0.0, inter_x2 - inter_x1)
+    #     inter_h = max(0.0, inter_y2 - inter_y1)
+    #     inter_area = inter_w * inter_h
 
-        area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
-        area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    #     area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    #     area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
 
-        union = area_a + area_b - inter_area
-        if union <= 0.0:
-            return 0.0
-        return inter_area / union
-
-    def nms_detections(self, detections, iou_threshold=0.5):
-        """
-        detections: list of dicts
-            {
-                "class": int,
-                "confidence": float,
-                "bbox": [x1,y1,x2,y2]
-            }
-
-        returns: filtered list with NMS applied per class
-        """
-
-        # group by class
-        by_class = {}
-        for det in detections:
-            cls = det["class"]
-            by_class.setdefault(cls, []).append(det)
-
-        final_kept = []
-
-        for cls, dets in by_class.items():
-            # sort by confidence descending
-            dets_sorted = sorted(dets, key=lambda d: d["confidence"], reverse=True)
-
-            kept = []
-            for det in dets_sorted:
-                keep_it = True
-                for k in kept:
-                    overlap = self.iou_xyxy(det["bbox"], k["bbox"])
-                    if overlap > iou_threshold:
-                        # too much overlap with a stronger box we already kept
-                        keep_it = False
-                        break
-                if keep_it:
-                    kept.append(det)
-
-            final_kept.extend(kept)
-
-        return final_kept
-
+    #     union = area_a + area_b - inter_area
+    #     if union <= 0.0:
+    #         return 0.0
+    #     return inter_area / union
 
     def detr_detections_to_proto_boxes(self, detections, pb, class_names):
         """
@@ -220,7 +166,7 @@ class RFDETRInfer:
             return out
 
         for det in detections:
-            cls_id = det["class"]
+            
             conf   = det["confidence"]
             x1, y1, x2, y2 = det["bbox"]
 
@@ -234,8 +180,8 @@ class RFDETRInfer:
                 Det(
                     box=Box(x=float(cx), y=float(cy), w=float(w), h=float(h)),
                     confidence=float(conf),
-                    class_id=int(cls_id),
-                    class_name=class_names[cls_id] if cls_id < len(class_names) else "",
+                    class_id=1,
+                    class_name="wheels",
                 )
             )
 
@@ -247,14 +193,12 @@ class RFDETRInfer:
         source=None,
         **kwargs,
     ):
-        print(kwargs["device"])
-       
         output = self.run_inference(source) 
-        detections = self.post_process(output, 0.9, 576, 576, 0.9)
+        detections = self.post_process(output, 0.9, 576, 576)
         proto_msg = self.detr_detections_to_proto_boxes(
                 detections,
                 pb=detect_object_pb2,
                 class_names=self.class_names
         )
-        
+
         return proto_msg 

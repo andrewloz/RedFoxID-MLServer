@@ -96,8 +96,6 @@ class DetectObjectService():
                 device=self.config.get("Device", "") # you will want to change this to match your hardware
             )
 
-            print("results type: ", type(results))
-
             # force flattening if output is true
             if bool(int(self.config.get("SaveImg", "0"))):
                 from flatten_output_dir import flatten
