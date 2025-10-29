@@ -8,7 +8,7 @@ import detect_object_pb2
 # IMPORTANT
 # currently this onnx inference class is configured to interpret and run RFDETR models
 # behaviour using any other type of model is unknown as of now.
-class OnnxInfer:
+class RFDETRInfer:
     def __init__(self):
         # initialise model
         self.model = rt.InferenceSession(

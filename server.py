@@ -42,8 +42,8 @@ class DetectObjectService():
                 from src.inference.openvino_inf import OpenvinoInfer
                 self.models[name] = OpenvinoInfer()
             elif self.inferenceLib == "onnx":
-                from src.inference.onnx_inf import OnnxInfer
-                self.models[name] = OnnxInfer()
+                from src.inference.onnx_inf import RFDETRInfer
+                self.models[name] = RFDETRInfer()
             else:
                 # if you get syntax import error please ignore.
                 from ultralytics import YOLO
