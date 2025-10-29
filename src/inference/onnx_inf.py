@@ -32,6 +32,8 @@ class OnnxInfer:
         # img[height,width] = 3 channels of rgb [r,g,b]
         # Convert image to numpy array and normalize pixel values
         image = np.array(image).astype(np.float32) / 255.0 # go through each key [Height, Width] and divide each value in [r,g,b] by 255
+        # we divide by 255 because the model is trained this way, its trained on rgb values where inputs are 0-1 so we 
+        # need to reflect that.
 
         # Change dimensions from HWC to CHW
         image = np.transpose(image, (2, 0, 1)) 
