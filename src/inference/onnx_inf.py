@@ -1,25 +1,47 @@
-import onnxruntime as rt
+from openvino.runtime import Core
 from PIL import Image
 import io
 import numpy as np
+import time
 
 import detect_object_pb2
+
+# HEIGHT_WIDTH = 576 # rfdetr medium
+HEIGHT_WIDTH = 384 # rfdetr nano
+
 
 # IMPORTANT
 # currently this onnx inference class is configured to interpret and run RFDETR models
 # behaviour using any other type of model is unknown as of now.
 class RFDETRInfer:
     def __init__(self):
+        core = Core()
         # initialise model
-        self.model = rt.InferenceSession(
-            "model/side_plane_model_detr.onnx",
-            providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
-        )
+        model = core.read_model("model/grid_model_openvino_fp16/inference_model.xml")
 
-        # Get input shape
-        input_info = self.model.get_inputs()[0]
-        self.input_channels, self.input_height, self.input_width = input_info.shape[1:]
-        print(self.input_channels, self.input_height, self.input_width)
+        devices = core.get_available_devices()
+        print("Available devices:", devices)
+
+        # Compile (this is like optimizing for device)
+        # "CPU" always works. "GPU" works if you have Intel GPU + drivers.
+        self.compiled_model = core.compile_model(model, "CPU")
+
+        # Get input info
+        # OpenVINO models can technically have multiple inputs; we assume 1.
+        input_layer = self.compiled_model.input(0)
+        shape = list(input_layer.shape)  # e.g. [1,3,HEIGHT_WIDTH,HEIGHT_WIDTH]
+
+        # Sometimes dimension 0 is -1 (dynamic batch). We only care about C,H,W.
+        self.input_channels = shape[1]
+        self.input_height   = shape[2]
+        self.input_width    = shape[3]
+
+        # print(self.input_channels, self.input_height, self.input_width) # this returns 3, 576, 576 this is not right.
+
+        # We'll also hang on to input+output layers for faster lookup in run_inference
+        self.input_layer  = input_layer
+        self.output_layers = self.compiled_model.outputs
+
         self.class_names = ['wheels']
 
 
@@ -27,7 +49,7 @@ class RFDETRInfer:
         """Preprocess the input image for inference."""
         image = Image.open(io.BytesIO(png_bytes)).convert("RGB") 
         # Resize the image to the model's input size
-        image = image.resize((self.input_width, self.input_height))
+        image = image.resize((HEIGHT_WIDTH, HEIGHT_WIDTH))
 
         # img[height,width] = 3 channels of rgb [r,g,b]
         # Convert image to numpy array and normalize pixel values
@@ -58,15 +80,40 @@ class RFDETRInfer:
     def run_inference(self, image_bytes):
         """Run the model inference and return the raw outputs."""
         # Preprocess the image
-        input_image = self.preprocess_image(image_bytes)
+        start = time.time()
+        input_tensor = self.preprocess_image(image_bytes)
+        print(f"image preprocessing: {int(round((time.time() - start) * 1000))}")
 
+        start = time.time()
         # Get input name from the model
-        input_name = self.model.get_inputs()[0].name
+        result_tensors = self.compiled_model([input_tensor])
+        print(f"inference took: {int(round((time.time() - start) * 1000))}")
 
-        # Run the model
-        outputs = self.model.run(None, {input_name: input_image})
+        # At this point:
+        #   result_tensors[0] is a np.ndarray
+        #   result_tensors[1] is a np.ndarray
+        #
+        # self.output_layers[i] is the *descriptor* that tells you the name of each output.
+        # We use that to line them up as [boxes, logits] for post_process.
 
-        return outputs 
+        # print("DEBUG result types:",
+        # type(result_tensors[0]),
+        # type(result_tensors[1]))
+
+        # print("DEBUG result shapes:",
+        #     result_tensors[0].shape,
+        #     result_tensors[1].shape)
+
+        outs_by_name = {}
+        for i, out_desc in enumerate(self.output_layers):
+            out_name = out_desc.get_any_name() # dets and labels
+            outs_by_name[out_name] = result_tensors[i]
+
+        boxes_raw  = outs_by_name["dets"]    # (1,300,4)
+        logits_raw = outs_by_name["labels"]  # (1,300,2)
+
+        # Return in the exact shape predict/post_process expects.
+        return [boxes_raw, logits_raw]
 
     def post_process(self, outputs, confidence_threshold, img_w, img_h):
         """
@@ -187,18 +234,102 @@ class RFDETRInfer:
 
         return out
 
+    def _save_annotated_image(self, png_bytes, detections, save_path):
+        """
+        Draw the detections on the image and write out a PNG file.
+        """
+
+        from PIL import ImageDraw, ImageFont
+
+        # open original image and force same size you used for post_process (HEIGHT_WIDTHxHEIGHT_WIDTH)
+        img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
+        img = img.resize((HEIGHT_WIDTH, HEIGHT_WIDTH))
+
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.load_default()
+
+        for det in detections:
+            x1, y1, x2, y2 = det["bbox"]
+            cls_name = det["class"]
+            conf = det["confidence"]
+
+            # box
+            draw.rectangle(
+                [(x1, y1), (x2, y2)],
+                outline=(255, 0, 0),
+                width=2,
+            )
+
+            # label text
+            label = f"{cls_name} {conf:.2f}"
+
+            tb = draw.textbbox((0, 0), label, font=font)
+            text_w = tb[2] - tb[0]
+            text_h = tb[3] - tb[1]
+
+            bg_tl = (x1, y1 - text_h - 4)
+            bg_br = (x1 + text_w + 4, y1)
+
+            draw.rectangle([bg_tl, bg_br], fill=(255, 0, 0))
+            draw.text(
+                (x1 + 2, y1 - text_h - 2),
+                label,
+                fill=(255, 255, 255),
+                font=font,
+            )
+
+        img.save(save_path, format="PNG")
+
 
     def predict(
         self,
         source=None,
         **kwargs,
     ):
-        output = self.run_inference(source) 
-        detections = self.post_process(output, 0.9, 576, 576)
+        # imgsz=(640, 640),
+        # # imgsz=(img.shape[0], img.shape[1]),
+        # conf=request.confidence_threshold,
+        # iou=request.iou_threshold,
+        # verbose=bool(int(self.config.get("Verbose", "0"))),
+        # save=bool(int(self.config.get("SaveImg", "0"))),
+        # project="./output",
+        # name=request.image_name, # this stops subdirectories being created, when save is true
+        # device=self.config.get("Device", "") # you will want to change this to match your hardware
+
+        print("START PREDICT")
+
+        output = self.run_inference(source)
+
+        # https://github.com/roboflow/rf-detr
+        # architecture has specific image size requirements
+
+        start = time.time()
+        detections = self.post_process(output, kwargs['conf'], HEIGHT_WIDTH, HEIGHT_WIDTH)
+        print(f"post_processing took: {int(round((time.time() - start) * 1000))}")
+
+
+        start = time.time()
         proto_msg = self.detr_detections_to_proto_boxes(
                 detections,
                 pb=detect_object_pb2,
                 class_names=self.class_names
         )
+        print(f"building proto took: {int(round((time.time() - start) * 1000))}")
+
+
+        if kwargs.get("save"):
+            start = time.time()
+            base_name = kwargs.get("name", "prediction")
+            save_path = f"{kwargs.get('project')}/{base_name}_annotated.png"
+
+            self._save_annotated_image(
+                png_bytes=source,
+                detections=detections,
+                save_path=save_path,
+            )
+            print(f"saving image took: {int(round((time.time() - start) * 1000))}")
+
+
+        print("END PREDICT")
 
         return proto_msg 

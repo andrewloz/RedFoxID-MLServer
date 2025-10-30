@@ -15,7 +15,7 @@ from src.config import Config
 class DetectObjectService():
     def __init__(self):
         # WIP for testing openvino inference
-        with open("input/test1.png", "rb") as f:
+        with open("input/grid_test.png", "rb") as f:
             png_bytes = f.read() 
 
         cfg, models = Config("config.ini").getAll()
@@ -30,7 +30,8 @@ class DetectObjectService():
             name = os.path.basename(m)
 
             if not os.path.exists(m):
-                raise FileNotFoundError(f"{m} does not exist!")
+                print(f"{m} model doesn't exist")
+                # raise FileNotFoundError(f"{m} does not exist!")
             
             if name == "":
                 name = m
@@ -54,7 +55,8 @@ class DetectObjectService():
  
             device = self.config.get('Device', '')
             print(f"Device configure: {device}")
-            self.models[name].predict(png_bytes, device=device)
+            results = self.models[name].predict(png_bytes, device=device, conf=0.6)
+            print("Warm up results:", results)
 
     def _get_model(self, name):
         if name not in self.models:
