@@ -95,7 +95,7 @@ RUN set -eux; \
     mkdir -p /usr/share/keyrings; \
     wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
         gpg --dearmor --batch --yes -o /usr/share/keyrings/intel-graphics.gpg; \
-    echo "deb [signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy main" \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" \
         > /etc/apt/sources.list.d/intel-gpu.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
