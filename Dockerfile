@@ -1,30 +1,21 @@
 FROM python:3.9-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 
+RUN apt update && apt install -y libgl1 libglib2.0-0
+
+RUN mkdir /tmp/app
+
+RUN pip install ultralytics --no-deps
 
 WORKDIR /app
 
-ENV PATH=$PATH:/home/app/.local/bin
+COPY . /app
 
-RUN apt-get update && apt-get install -y gpg-agent wget && wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
-  gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg && echo 'deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc' | \
-  tee  /etc/apt/sources.list.d/intel.gpu.jammy.list
+ENV YOLO_CONFIG_DIR="/tmp/.ultralytics"
+RUN mkdir -p ${YOLO_CONFIG_DIR} && chmod -R 777 ${YOLO_CONFIG_DIR}
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential ffmpeg libsm6 libxext6 ocl-icd-libopencl1 intel-opencl-icd intel-level-zero-gpu level-zero \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install -r requirements-base.txt
 
-COPY requirements.txt /app/requirements.txt
+# openvino specific deps
+RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu && pip3 install openvino>=2024.0.0
 
-# install deps for runtime layer
-RUN python -m pip install -U pip -r requirements.txt 
-
-COPY . /app 
-
-EXPOSE 50051
-
-HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import socket,sys;s=socket.socket();s.settimeout(2);s.connect(('127.0.0.1',50051));s.close()" || exit 1
-
-ENTRYPOINT ["python", "server.py"]
-# Default positional argument (config path). Can be overridden: `docker run image /app/other.ini` or append nothing to use default inside image.
-CMD ["/app/config.ini"]
+CMD ["python", "server.py", "config.ini"]
