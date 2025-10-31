@@ -138,12 +138,30 @@ docker build -t redfoxid/inference-server .
 
 Mount your model directory read-only so the container can access the ONNX file.
 
+### Build multiple runtimes with Buildx
+
+If you have Docker Buildx available, the repo includes a `docker-bake.hcl` that maps to every published runtime tag:
+
+```bash
+# Build them all (production, cuda, openvino-cpu/gpu/npu)
+docker buildx bake all
+
+# Build just one target
+docker buildx bake cuda
+
+# Override the CUDA wheel tag when building
+docker buildx bake cuda --set cuda.args.TORCH_CUDA_TAG=cu122
+```
+
+Set the environment variables `REGISTRY` or `BUILD_CONTEXT` to override the default values used in the bake file (`redfoxid/inference-server` and current directory respectively).
+
 ### NVIDIA GPUs
 
 1. Install the NVIDIA container toolkit: <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>
 2. Run the container with GPU support:
    ```bash
    docker run -v "$(pwd)/model:/app/model/:ro" \
+              -v "$(pwd)/config.ini:/app/config.ini:ro" \
               --gpus all \
               --rm \
               -p 50051:50051 \
@@ -165,6 +183,7 @@ For Intel GPU workloads use the OpenVINO GPU image:
 
 ```bash
 docker run -v "$(pwd)/model:/app/model/:ro" \
+           -v "$(pwd)/config.ini:/app/config.ini:ro" \
            --device=/dev/dri \
            -d \
            -p 50051:50051 \
@@ -176,6 +195,7 @@ For Intel NPU workloads change the device flag to `/dev/accel` while keeping the
 
 ```bash
 docker run -v "$(pwd)/model:/app/model/:ro" \
+           -v "$(pwd)/config.ini:/app/config.ini:ro" \
            --device=/dev/accel \
            -d \
            -p 50051:50051 \
@@ -187,6 +207,7 @@ For CPU-only execution swap the device flag and tag:
 
 ```bash
 docker run -v "$(pwd)/model:/app/model/:ro" \
+           -v "$(pwd)/config.ini:/app/config.ini:ro" \
            -d \
            -p 50051:50051 \
            --name inference-server \
