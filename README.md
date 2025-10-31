@@ -1,91 +1,208 @@
-# Welcome
-Welcome to the RedfoxID inference server for computer vision models.
+RedfoxID Inference Server
+=========================
 
-### Create environment
-`python3.9 -m venv venv`
+This repository contains the gRPC inference server that powers RedfoxID computer-vision workloads. The server loads one or more ONNX object-detection models and exposes a simple API for making predictions from PNG images.
 
-### Activate environment
-`source ./venv/bin/activate`
+Quick Start
+-----------
 
-### Finish setting up torch cuda drivers
-for some reason include the cuda drivers in the environment.yml doesn't always work, you have to install manually after activation of the python env. Probably because the installation process requires the environment activated.
+1. Ensure Python `3.9` is installed and available on your `PATH`. If you prefer managed Python versions, set up [pyenv](https://github.com/pyenv/pyenv) and run `pyenv install 3.9.XX` followed by `pyenv local 3.9.XX` inside the repo.
+2. Create a virtual environment: `python3.9 -m venv venv`
+3. Activate it:
+   - Linux/macOS: `source ./venv/bin/activate`
+   - Windows (PowerShell): `.\venv\Scripts\Activate.ps1`
+4. Install the core Python dependencies: `pip install -r requirements.txt`
+5. Install hardware-optimised runtimes (pick what suits your machine):
+   - PyTorch: follow the command generator at <https://pytorch.org/get-started/locally/>
+   - ONNX Runtime: follow <https://onnxruntime.ai/docs/install/> for your accelerator
+6. Install Ultralytics (YOLO backend): `pip install ultralytics`
+7. Verify that your environment can see the available devices: `python devices.py`
 
-A quick not when installing torch, go to the website and install your platform version depending on the hardware you want to run on:
-https://pytorch.org/get-started/locally/
+Once the prerequisites are satisfied you can configure the server, load a model, and start handling requests.
 
-Onnxruntime installation docs:
-https://onnxruntime.ai/docs/install/
+Prerequisites
+-------------
 
-Same for onnxruntime, installing process might vary depending on hardware.
+- Python 3.9 (other versions are untested)
+- System-level GPU/NPU drivers that match the accelerator you plan to target (CUDA, Intel GPU/NPU, etc.)
+- (Optional) Docker with access to the required device runtime for containerised deployments
 
-`pip3 install ultralytics` -- this downloads seperate runtime environments depending on the hardware/model provided in the code. seems to
-automatically find the best way to run the model and installs the relevant drivers for it.
+Environment Setup
+-----------------
 
-to check it worked, you can run the devices.py script.
+Create and activate the virtual environment as shown in the quick-start section. After activation:
 
-### Testing (manual)
-add your onnx model to the models directory, you can add any images you want to test by adding to the `./input` directory. Then running the `server.py` followed by the `test_client.py` will take you through a gRPC request cycle of each `.png` you have added to the input directory, and log various perforamnce metrics. please take a look at `test_client.py` to see what metrics you would be seeing here.
+```bash
+# Install Python packages that do not depend on hardware
+pip install -r requirements.txt
 
+# Install Ultralytics YOLO runtime
+pip install ultralytics
 
-### Setting up OpenVINO runtime
-https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-apt.html
-
-don't forget to do the additional configuration here: https://docs.openvino.ai/2025/get-started/install-openvino/configurations/configurations-intel-gpu.html
-and install the extra deps:
-`sudo apt-get install -y ocl-icd-libopencl1 intel-opencl-icd intel-level-zero-gpu level-zero`
-
-you may need to install driver libraries from here: https://dgpu-docs.intel.com/driver/installation.html#ubuntu#ubuntu
-
-double check this reddit post if you struggle to install package repository for you ubuntu system: https://github.com/intel/intel-extension-for-pytorch/issues/365
-
-if selecting a device for openVINO, you can use intel:gpu, intel:npu and intel:cpu with the ultralytics library
-
-# Configs
-
-you can copy the example-config.ini and rename it to config.ini to start with. you will want to be changing values
-under the InferenceServer section.
-
-
-# Profiling
-We can use pythons built in profiling tool `cProfile` like so
-`python -m cProfile -o server_profile.prof`
-
-And then visualise the results with a tool called snakeviz like so
+# Install accelerator-specific stacks separately.
+# Examples (consult the linked docs for an exact command):
+#   PyTorch with CUDA: https://pytorch.org/get-started/locally/
+#   ONNX Runtime variants: https://onnxruntime.ai/docs/install/
 ```
-# install
+
+Manual installation of CUDA-enabled PyTorch inside the activated virtual environment tends to be more reliable than relying on `environment.yml`, as the installers expect an active environment.
+
+After installing runtimes, validate the detected devices:
+
+```bash
+python devices.py
+```
+
+Configuration
+-------------
+
+1. Copy the template configuration: `cp example-config.ini config.ini`
+2. Update the `[InferenceServer]` section with your desired host, port, and model list. At minimum provide at least one model path, for example:
+   ```
+   [InferenceServer]
+   Host=0.0.0.0
+   Port=50051
+   MaxWorkers=1
+   Device=cuda:0     ; or intel:gpu / cpu / etc.
+   Models=/absolute/path/to/model.onnx
+   ```
+3. Review the rest of the configuration file to make sure any detector- or environment-specific settings match your deployment.
+
+Running the Server Locally
+--------------------------
+
+1. Place the ONNX model(s) referenced in `config.ini` either in the repository `model/` directory or at another path accessible from the machine.
+2. (Optional) Populate an `input/` directory with PNG images if you intend to run the included test client or your own scripts.
+3. Start the gRPC server:
+   ```bash
+   python server.py config.ini
+   ```
+   On startup the server will load the configured model, warm it up on the selected device, and begin listening for requests.
+
+Manual Testing
+--------------
+
+- Use the gRPC test client (`test_client.py`) or your own client implementation to send images to the server. The script should iterate through each PNG in the `./input` directory, invoke the inference endpoint, and log performance metrics.
+- Customise the client-side confidence and IoU thresholds as needed to match production settings.
+- If you do not already have `test_client.py`, adapt one of the gRPC samples or request the internal script used by the team.
+
+Profiling the Server
+--------------------
+
+Python's built-in profiler and SnakeViz can help diagnose performance hotspots:
+
+```bash
+python -m cProfile -o server_profile.prof server.py config.ini
+
+# Visualise the profile
 pip install snakeviz
 snakeviz server_profile.prof
 ```
 
-# Docker
-To get docker using the correct device:
+OpenVINO Runtime (Intel Accelerators)
+-------------------------------------
 
-building command
-`docker build -t redfoxid/inference-server .`
+Follow the official documentation to install OpenVINO:
 
-## NVIDIA
-you need to install the nvidia-container-toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+- Base installation: <https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-apt.html>
+- Additional GPU configuration: <https://docs.openvino.ai/2025/get-started/install-openvino/configurations/configurations-intel-gpu.html>
 
-with that installed you can then run the container with --gpus all set and it should work.
+Install the extra system dependencies:
 
-so full run command should be
+```bash
+sudo apt-get install -y ocl-icd-libopencl1 intel-opencl-icd intel-level-zero-gpu level-zero
+```
 
-`docker run -v "$(pwd)/model:/app/model/:ro" --gpus all --rm -p 50051:50051 --name inference-server redfoxid/inference-server config.ini`
+Depending on your system you may also need Intel driver libraries from <https://dgpu-docs.intel.com/driver/installation.html#ubuntu#ubuntu>. If the package repository fails to install, see the troubleshooting advice at <https://github.com/intel/intel-extension-for-pytorch/issues/365>.
 
-### Notes
-you might want to remove the --rm if you don't want to install the python deps every time.
+When selecting a device in configuration or Ultralytics commands you can use `intel:gpu`, `intel:npu`, or `intel:cpu`.
 
+Prebuilt Docker Images
+----------------------
 
-## Intel - OpenVINO
-the run command is mostly the same, apart from changing --gpus all to --device option
+If you only need to run the service, pull one of the published images instead of building locally:
 
-for intel gpu
---device=/dev/dri
+- `docker pull redfoxid/inference-server:production`
+- `docker pull redfoxid/inference-server:openvino-cpu`
+- `docker pull redfoxid/inference-server:openvino-gpu`
+- `docker pull redfoxid/inference-server:cuda`
 
-for intel npu
---device=/dev/accel
+Docker Workflow
+---------------
 
-`docker run -v "$(pwd)/model:/app/model/:ro" --device={replaceWithDevicePathAbove} -d -p 50051:50051 --name inference-server redfoxid/inference-server config.ini`
+### Build the image
 
+```bash
+docker build -t redfoxid/inference-server .
+```
 
+Mount your model directory read-only so the container can access the ONNX file.
 
+### NVIDIA GPUs
+
+1. Install the NVIDIA container toolkit: <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>
+2. Run the container with GPU support:
+   ```bash
+   docker run -v "$(pwd)/model:/app/model/:ro" \
+              --gpus all \
+              --rm \
+              -p 50051:50051 \
+              --name inference-server \
+              redfoxid/inference-server:cuda config.ini
+   ```
+   Omit `--rm` if you prefer to retain the container between runs.
+
+### Intel GPUs / NPUs (OpenVINO)
+
+Use the appropriate device path instead of `--gpus all`:
+
+- Intel GPU: `--device=/dev/dri`
+- Intel NPU: `--device=/dev/accel`
+
+Example:
+
+For Intel GPU workloads use the OpenVINO GPU image:
+
+```bash
+docker run -v "$(pwd)/model:/app/model/:ro" \
+           --device=/dev/dri \
+           -d \
+           -p 50051:50051 \
+           --name inference-server \
+           redfoxid/inference-server:openvino-gpu config.ini
+```
+
+For Intel NPU workloads change the device flag to `/dev/accel` while keeping the OpenVINO GPU tag:
+
+```bash
+docker run -v "$(pwd)/model:/app/model/:ro" \
+           --device=/dev/accel \
+           -d \
+           -p 50051:50051 \
+           --name inference-server \
+           redfoxid/inference-server:openvino-npu config.ini
+```
+
+For CPU-only execution swap the device flag and tag:
+
+```bash
+docker run -v "$(pwd)/model:/app/model/:ro" \
+           -d \
+           -p 50051:50051 \
+           --name inference-server \
+           redfoxid/inference-server:openvino-cpu config.ini
+```
+
+Troubleshooting Tips
+--------------------
+
+- If models fail to load, double-check the paths listed under `Models=` in `config.ini`. Absolute paths avoid ambiguity when running inside Docker.
+- If no accelerator is detected, rerun `python devices.py` after confirming the relevant drivers and runtimes are installed.
+- Slow first-inference times are expected; subsequent requests should be faster after the model warms up.
+
+Additional Resources
+--------------------
+
+- PyTorch installation helper: <https://pytorch.org/get-started/locally/>
+- ONNX Runtime installation guide: <https://onnxruntime.ai/docs/install/>
+- OpenVINO installation guide: <https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-apt.html>
