@@ -1,3 +1,4 @@
+
 from ultralytics import YOLO
 from concurrent import futures
 import logging
@@ -20,37 +21,29 @@ class DetectObjectService():
         self.config = cfg
         self.models = {}
         print("Configuration:", dict(self.config))
-        print("Available Models:",self.models)
+        print("Available Models:", self.models)
 
         for m in models:
             name = os.path.basename(m)
-
             if not os.path.exists(m):
                 raise FileNotFoundError(f"{m} does not exist!")
-
             if name == "":
                 name = m
-
             print(f"loading model {name}")
-
             self.models[name] = YOLO(f"{m}", task="detect")
             device = self.config.get('Device', '')
             print(f"Device configure: {device}")
-            # warm up the models, uses an asset from the ultralytics package to test, you will see warning in console.
             self.models[name].predict(device=device)
+            break  # load only the first model
 
     def _get_model(self, name):
-        if name not in self.models:
-            raise Exception(f"Model '{name}' not available. Available models are: {', '.join(list(self.models.keys()))}")
-        return self.models[name]
+        first_model = next(iter(self.models.values()))
+        return first_model
 
     def Request(self, request, context):
         try:
             if not getattr(request, "image_png_bytes", None):
                 raise Exception("No image_png_bytes in payload loaded, please provide image btyes for inference")
-
-            if not getattr(request, "model_name", None):
-                raise Exception("No model_name in payload loaded, please provide model_name")
 
             model = self._get_model(request.model_name)
 
@@ -70,15 +63,13 @@ class DetectObjectService():
                 verbose=bool(int(self.config.get("Verbose", "0"))),
                 save=bool(int(self.config.get("SaveImg", "0"))),
                 project="./output",
-                name=request.image_name, # this stops subdirectories being created, when save is true
-                device=self.config.get("Device", "") # you will want to change this to match your hardware
+                name=request.image_name,
+                device=self.config.get("Device", "")
             )
 
-            # force flattening if output is true
             if bool(int(self.config.get("SaveImg", "0"))):
                 from flatten_output_dir import flatten
                 from pathlib import Path
-
                 flatten(Path("./output") / "Images")
 
             objects = results_to_proto_boxes(results[0], pb)
@@ -91,17 +82,12 @@ class DetectObjectService():
             return pb.ResponsePayload(objects=[])
 
 def serve(config_path: str):
-    """Start the gRPC server using the provided config file path.
-
-    Args:
-        config_path: Path to the configuration INI file.
-    """
     cfg, _ = Config(config_path).getAll()
     port = cfg.get("Port", "50051")
     host = cfg.get("Host", "[::]")
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))))
     pbgrpc.add_DetectObjectServicer_to_server(DetectObjectService(config_path), server)
-    server.add_insecure_port(f"{host}:{str(port)}") # do we need any kind of secure transport if its inside a secure network?
+    server.add_insecure_port(f"{host}:{str(port)}")
     server.start()
     print("Server started, listening on " + port)
     server.wait_for_termination()
@@ -109,13 +95,11 @@ def serve(config_path: str):
 if __name__ == "__main__":
     logging.basicConfig()
     parser = argparse.ArgumentParser(description="RedFox ML Inference Server")
-    parser.add_argument(
-        "config_path",
-        help="Path to configuration INI file."
-    )
+    parser.add_argument("config_path", help="Path to configuration INI file.")
     args = parser.parse_args()
 
     if not os.path.isfile(args.config_path):
         raise FileNotFoundError(f"Config file '{args.config_path}' not found.")
 
     serve(args.config_path)
+
