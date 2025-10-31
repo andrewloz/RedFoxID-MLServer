@@ -1,6 +1,8 @@
 from ultralytics import YOLO
 from concurrent import futures
 import logging
+import argparse
+import os
 
 import grpc
 import numpy as np
@@ -8,15 +10,13 @@ import cv2
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
-import os
-
 
 from server_utils import results_to_proto_boxes
 from src.config import Config
 
 class DetectObjectService():
-    def __init__(self):
-        cfg, models = Config("config.ini").getAll()
+    def __init__(self, config_path: str):
+        cfg, models = Config(config_path).getAll()
         self.config = cfg
         self.models = {}
         print("Configuration:", dict(self.config))
@@ -90,12 +90,17 @@ class DetectObjectService():
             context.set_details(str(e))
             return pb.ResponsePayload(objects=[])
 
-def serve():
-    cfg, _ = Config("config.ini").getAll()
+def serve(config_path: str):
+    """Start the gRPC server using the provided config file path.
+
+    Args:
+        config_path: Path to the configuration INI file.
+    """
+    cfg, _ = Config(config_path).getAll()
     port = cfg.get("Port", "50051")
     host = cfg.get("Host", "[::]")
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=int(cfg.get("MaxWorkers", "1"))))
-    pbgrpc.add_DetectObjectServicer_to_server(DetectObjectService(), server)
+    pbgrpc.add_DetectObjectServicer_to_server(DetectObjectService(config_path), server)
     server.add_insecure_port(f"{host}:{str(port)}") # do we need any kind of secure transport if its inside a secure network?
     server.start()
     print("Server started, listening on " + port)
@@ -103,4 +108,14 @@ def serve():
 
 if __name__ == "__main__":
     logging.basicConfig()
-    serve()
+    parser = argparse.ArgumentParser(description="RedFox ML Inference Server")
+    parser.add_argument(
+        "config_path",
+        help="Path to configuration INI file."
+    )
+    args = parser.parse_args()
+
+    if not os.path.isfile(args.config_path):
+        raise FileNotFoundError(f"Config file '{args.config_path}' not found.")
+
+    serve(args.config_path)

@@ -25,4 +25,6 @@ EXPOSE 50051
 
 HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import socket,sys;s=socket.socket();s.settimeout(2);s.connect(('127.0.0.1',50051));s.close()" || exit 1
 
-CMD ["python", "server.py"]
+ENTRYPOINT ["python", "server.py"]
+# Default positional argument (config path). Can be overridden: `docker run image /app/other.ini` or append nothing to use default inside image.
+CMD ["/app/config.ini"]

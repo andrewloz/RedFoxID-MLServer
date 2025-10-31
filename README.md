@@ -70,7 +70,7 @@ with that installed you can then run the container with --gpus all set and it sh
 
 so full run command should be
 
-`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" -v "$(pwd)/model:/app/model/:ro" --gpus all --rm -p 50051:50051 --name inference-server redfoxid/inference-server`
+`docker run -v "$(pwd)/model:/app/model/:ro" --gpus all --rm -p 50051:50051 --name inference-server redfoxid/inference-server config.ini`
 
 ### Notes
 you might want to remove the --rm if you don't want to install the python deps every time.
@@ -85,7 +85,7 @@ for intel gpu
 for intel npu
 --device=/dev/accel
 
-`docker run -v "$(pwd)/config.ini:/app/config.ini:ro" -v "$(pwd)/model:/app/model/:ro" --device={replaceWithDevicePathAbove} -d -p 50051:50051 --name inference-server redfoxid/inference-server`
+`docker run -v "$(pwd)/model:/app/model/:ro" --device={replaceWithDevicePathAbove} -d -p 50051:50051 --name inference-server redfoxid/inference-server config.ini`
 
 
 
