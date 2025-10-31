@@ -27,12 +27,12 @@ class DetectObjectService():
 
             if not os.path.exists(m):
                 raise FileNotFoundError(f"{m} does not exist!")
-            
+
             if name == "":
                 name = m
 
             print(f"loading model {name}")
-            
+
             self.models[name] = YOLO(f"{m}", task="detect")
             device = self.config.get('Device', '')
             print(f"Device configure: {device}")
@@ -41,7 +41,7 @@ class DetectObjectService():
 
     def _get_model(self, name):
         if name not in self.models:
-            raise Exception(f"Model not available available models are: {', '.join(list(self.models.keys()))}")
+            raise Exception(f"Model '{name}' not available. Available models are: {', '.join(list(self.models.keys()))}")
         return self.models[name]
 
     def Request(self, request, context):
@@ -51,7 +51,7 @@ class DetectObjectService():
 
             if not getattr(request, "model_name", None):
                 raise Exception("No model_name in payload loaded, please provide model_name")
-            
+
             model = self._get_model(request.model_name)
 
             np_arr = np.frombuffer(request.image_png_bytes, dtype=np.uint8)
@@ -84,7 +84,7 @@ class DetectObjectService():
             objects = results_to_proto_boxes(results[0], pb)
             return objects
 
-        except Exception as e: 
+        except Exception as e:
             print(e)
             context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
             context.set_details(str(e))
