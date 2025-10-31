@@ -8,7 +8,9 @@
 #
 
 # ---------- common base (build once) ----------
-FROM python:3.9-slim AS base
+FROM ubuntu:22.04 AS base
+
+SHELL ["/bin/bash", "-c"]
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -16,48 +18,63 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
         libgl1 \
-        libglib2.0-0 && \
+        libglib2.0-0 \
+        python3.10 \
+        python3.10-distutils \
+        python3.10-venv \
+        python3-pip && \
     rm -rf /var/lib/apt/lists/*
+
+RUN python3.10 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    ln -sf /usr/bin/python3.10 /usr/bin/python
 
 WORKDIR /app
 
 COPY requirements.txt ./
 
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir ultralytics --no-deps
+RUN python -m pip install --no-cache-dir -r requirements.txt && \
+    python -m pip install --no-cache-dir ultralytics --no-deps
 
 COPY . /app
 
+RUN chmod +x /app/docker-entrypoint.sh
+
 RUN mkdir -p "${YOLO_CONFIG_DIR}" && chmod -R 777 "${YOLO_CONFIG_DIR}"
 
-CMD ["python", "server.py", "config.ini"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 
 # ---------- production (portable CPU / ONNX Runtime) ----------
 FROM base AS production
 
-RUN pip install --no-cache-dir "onnxruntime>=1.18" && \
-    pip uninstall -y torch torchvision || true
+RUN python -m pip install --no-cache-dir "onnxruntime>=1.18" && \
+    python -m pip uninstall -y torch torchvision || true
 
 
 # ---------- cuda (PyTorch CUDA wheels) ----------
 # PyTorch CUDA wheels bundle CUDA; host only needs NVIDIA driver + nvidia-container-runtime
 FROM base AS cuda
 
-ARG TORCH_CUDA_TAG=cu121
+ARG TORCH_CUDA_TAG=cu126
 
-RUN pip install --no-cache-dir \
-        "torch==2.*+${TORCH_CUDA_TAG}" \
-        "torchvision==0.*+${TORCH_CUDA_TAG}" \
+RUN python -m pip install --no-cache-dir \
+        torch \
+        torchvision \
     --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}"
 
 
 # ---------- openvino variants ----------
 FROM base AS openvino-base
 
-RUN pip install --no-cache-dir "openvino>=2024.0.0" && \
-    pip uninstall -y torch torchvision onnxruntime || true
+RUN python -m pip install --no-cache-dir "openvino>=2024.0.0" && \
+    python -m pip install --no-cache-dir \
+        torch \
+        torchvision \
+        --index-url "https://download.pytorch.org/whl/cpu" && \
+    python -m pip uninstall -y onnxruntime || true
 
 # OpenVINO CPU-only image
 FROM openvino-base AS openvino-cpu
@@ -67,9 +84,64 @@ FROM openvino-base AS openvino-cpu
 # OpenVINO GPU image (expects host to pass /dev/dri)
 FROM openvino-base AS openvino-gpu
 
-# GPU-specific drivers remain host provided; container inherits OpenVINO runtime
+# Bundles Intel dGPU user-space components per https://dgpu-docs.intel.com/driver/client/overview.html
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        lsb-release \
+        wget; \
+    mkdir -p /usr/share/keyrings; \
+    wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+        gpg --dearmor --batch --yes -o /usr/share/keyrings/intel-graphics.gpg; \
+    echo "deb [signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy main" \
+        > /etc/apt/sources.list.d/intel-gpu.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        clinfo \
+        intel-gsc \
+        intel-metrics-discovery \
+        intel-opencl-icd \
+        libze-intel-gpu1 \
+        libze1; \
+    apt-get install -y --no-install-recommends \
+        intel-media-va-driver-non-free \
+        libmfx-gen1 \
+        libvpl-tools \
+        libvpl2 \
+        libva-glx2 \
+        va-driver-all \
+        vainfo; \
+    apt-get install -y --no-install-recommends \
+        intel-ocloc \
+        libze-dev; \
+    rm -rf /var/lib/apt/lists/*
 
 # OpenVINO NPU image (expects host to pass /dev/accel)
 FROM openvino-base AS openvino-npu
 
-# NPU variant reuses the same OpenVINO runtime setup
+# Adds Intel Movidius / NPU runtime components required by OpenVINO
+ARG INTEL_NPU_DRIVER_BUNDLE="linux-npu-driver-v1.24.0.20251003-18218973328-ubuntu2404"
+ARG INTEL_NPU_DRIVER_URL="https://github.com/intel/linux-npu-driver/releases/download/v1.24.0/${INTEL_NPU_DRIVER_BUNDLE}.tar.gz"
+ARG INTEL_LEVEL_ZERO_DEB="level-zero_1.24.2+u24.04_amd64.deb"
+ARG INTEL_LEVEL_ZERO_URL="https://github.com/oneapi-src/level-zero/releases/download/v1.24.2/${INTEL_LEVEL_ZERO_DEB}"
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libtbb12 \
+        libusb-1.0-0 \
+        udev \
+        wget; \
+    tmpdir="$(mktemp -d)"; \
+    wget -q -O "${tmpdir}/linux-npu-driver.tar.gz" "${INTEL_NPU_DRIVER_URL}"; \
+    mkdir -p "${tmpdir}/bundle"; \
+    tar -xf "${tmpdir}/linux-npu-driver.tar.gz" -C "${tmpdir}/bundle" --strip-components=1; \
+    dpkg -i ${tmpdir}/bundle/*.deb || apt-get install -y --no-install-recommends --fix-broken; \
+    rm -rf "${tmpdir}/linux-npu-driver.tar.gz"; \
+    wget -q -O "${tmpdir}/${INTEL_LEVEL_ZERO_DEB}" "${INTEL_LEVEL_ZERO_URL}"; \
+    dpkg -i "${tmpdir}/${INTEL_LEVEL_ZERO_DEB}" || apt-get install -y --no-install-recommends --fix-broken; \
+    rm -rf "${tmpdir}"; \
+    rm -rf /var/lib/apt/lists/*

@@ -155,6 +155,21 @@ docker buildx bake cuda --set cuda.args.TORCH_CUDA_TAG=cu122
 
 Set the environment variables `REGISTRY` or `BUILD_CONTEXT` to override the default values used in the bake file (`redfoxid/inference-server` and current directory respectively).
 
+### Verify hardware from inside the container
+
+If hardware support looks uncertain, run the bundled hardware probe from within the container before starting the server. Swap the image tag and device options to match the runtime you plan to test.
+
+```bash
+docker run --rm \
+  -v "$(pwd)/config.ini:/app/config.ini:ro" \
+  -v "$(pwd)/model:/app/model:ro" \
+  --gpus all \
+  redfoxid/inference-server:cuda \
+  python devices.py
+```
+
+For OpenVINO variants replace the tag (for example `openvino-gpu`) and substitute `--gpus all` with either `--device=/dev/dri` or `--device=/dev/accel` depending on GPU versus NPU access.
+
 ### NVIDIA GPUs
 
 1. Install the NVIDIA container toolkit: <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>
@@ -202,6 +217,10 @@ docker run -v "$(pwd)/model:/app/model/:ro" \
            --name inference-server \
            redfoxid/inference-server:openvino-npu config.ini
 ```
+
+The OpenVINO GPU image now follows Intel's client driver guidance and installs the dGPU user-space components (OpenCL ICD, Level Zero userspace, metrics discovery, VA/Media drivers, `intel-gsc`, `libvpl*`, `clinfo`, `vainfo`, `intel-ocloc`, etc.). You still need the matching Intel kernel driver stack on the host and must pass `/dev/dri` through to the container.
+
+The OpenVINO NPU image bundles Intel's `linux-npu-driver` release `v1.24.0` (Ubuntu 24.04 tarball), Level Zero loader `1.24.2`, and the required USB/runtime dependencies (`libusb-1.0-0`, `udev`, `libtbb12`). Ensure the host exposes the VPU device path (commonly `/dev/accel` or the relevant `/dev/bus/usb` device) with the `--device` flag so OpenVINO can detect it inside the container.
 
 For CPU-only execution swap the device flag and tag:
 
