@@ -10,3 +10,5 @@ config.ini
 
 *.prof
 .config
+
+.vscode/*
