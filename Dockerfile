@@ -40,8 +40,6 @@ RUN python -m pip install --no-cache-dir -r requirements.txt && \
 
 COPY . /app
 
-RUN chmod +x /app/docker-entrypoint.sh
-
 RUN mkdir -p "${YOLO_CONFIG_DIR}" && chmod -R 777 "${YOLO_CONFIG_DIR}"
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

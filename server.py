@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 
 from ultralytics import YOLO
 from concurrent import futures
