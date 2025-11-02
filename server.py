@@ -15,6 +15,8 @@ import detect_object_pb2 as pb
 from server_utils import results_to_proto_boxes
 from src.config import Config
 
+APP_VERSION = "0.0.0"
+
 class DetectObjectService():
     def __init__(self, config_path: str):
         cfg, models = Config(config_path).getAll()
@@ -95,8 +97,16 @@ def serve(config_path: str):
 if __name__ == "__main__":
     logging.basicConfig()
     parser = argparse.ArgumentParser(description="RedFox ML Inference Server")
-    parser.add_argument("config_path", help="Path to configuration INI file.")
+    parser.add_argument("config_path", nargs="?", default=None, help="Path to configuration INI file.")
+    parser.add_argument("-v", "--version", action="store_true", help="Print application version and exit")
     args = parser.parse_args()
+
+    if args.version:
+        print(APP_VERSION)
+        raise SystemExit(0)
+
+    if args.config_path is None:
+        parser.error("config_path is required")
 
     if not os.path.isfile(args.config_path):
         raise FileNotFoundError(f"Config file '{args.config_path}' not found.")

@@ -1,3 +1,7 @@
+variable "app_version" {
+  default = "0.0.0"
+}
+
 variable "build_context" {
   default = "."
 }
@@ -32,7 +36,7 @@ target "base" {
 target "production" {
   inherits = ["base"]
   target   = "production"
-  tags     = ["${registry}:production"]
+  tags     = ["${registry}:${app_version}-production"]
 }
 
 target "cuda" {
@@ -41,7 +45,7 @@ target "cuda" {
   args = {
     TORCH_CUDA_TAG = torch_cuda_tag
   }
-  tags = ["${registry}:cuda${cuda_major_minor}"]
+  tags = ["${registry}:${app_version}-cuda${cuda_major_minor}"]
 }
 
 target "trt" {
@@ -52,7 +56,7 @@ target "trt" {
     TENSORRT_VERSION = tensorrt_version
   }
   tags = [
-    "${registry}:cuda${cuda_major_minor}-trt${tensorrt_major_minor}",
+    "${registry}:${app_version}-cuda${cuda_major_minor}-trt${tensorrt_major_minor}",
   ]
 }
 
@@ -64,19 +68,19 @@ target "openvino-base" {
 target "openvino-cpu" {
   inherits = ["openvino-base"]
   target   = "openvino-cpu"
-  tags     = ["${registry}:openvino-cpu"]
+  tags     = ["${registry}:${app_version}-openvino-cpu"]
 }
 
 target "openvino-gpu" {
   inherits = ["openvino-base"]
   target   = "openvino-gpu"
-  tags     = ["${registry}:openvino-gpu"]
+  tags     = ["${registry}:${app_version}-openvino-gpu"]
 }
 
 target "openvino-npu" {
   inherits = ["openvino-base"]
   target   = "openvino-npu"
-  tags     = ["${registry}:openvino-npu"]
+  tags     = ["${registry}:${app_version}-openvino-npu"]
 }
 
 group "all" {
