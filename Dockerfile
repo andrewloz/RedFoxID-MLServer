@@ -65,6 +65,16 @@ RUN python -m pip install --no-cache-dir \
         torchvision \
     --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}"
 
+# ---------- Tensorrt (NVIDIA TensorRt wheels) ----------
+# host only needs NVIDIA driver + nvidia-container-runtime
+FROM cuda AS trt
+
+ARG TORCH_CUDA_TAG
+ARG TENSORRT_VERSION="10.13.3.9"
+
+# Strip last character (e.g. cu126 -> cu12) for TensorRT wheel tag
+RUN python -m pip install --no-cache-dir --index-url https://pypi.nvidia.com \
+    "tensorrt-${TORCH_CUDA_TAG::-1}==${TENSORRT_VERSION}"
 
 # ---------- openvino variants ----------
 FROM base AS openvino-base

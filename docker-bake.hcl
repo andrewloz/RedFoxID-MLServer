@@ -10,6 +10,21 @@ variable "torch_cuda_tag" {
   default = "cu126"
 }
 
+# Maintain manually if torch_cuda_tag changes
+variable "cuda_major_minor" {
+  default = "12.6"
+}
+
+# Full TensorRT version used for pip install
+variable "tensorrt_version" {
+  default = "10.13.3.9"
+}
+
+# Maintain manually alongside tensorrt_version
+variable "tensorrt_major_minor" {
+  default = "10.13"
+}
+
 target "base" {
   context    = build_context
 }
@@ -26,7 +41,19 @@ target "cuda" {
   args = {
     TORCH_CUDA_TAG = torch_cuda_tag
   }
-  tags = ["${registry}:cuda"]
+  tags = ["${registry}:cuda${cuda_major_minor}"]
+}
+
+target "trt" {
+  inherits = ["base"]
+  target   = "trt"
+  args = {
+    TORCH_CUDA_TAG = torch_cuda_tag
+    TENSORRT_VERSION = tensorrt_version
+  }
+  tags = [
+    "${registry}:cuda${cuda_major_minor}-trt${tensorrt_major_minor}",
+  ]
 }
 
 target "openvino-base" {
