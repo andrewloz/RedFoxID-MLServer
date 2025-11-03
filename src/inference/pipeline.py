@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Any, Callable, Optional, Protocol, Tuple
 
 import numpy as np
@@ -47,13 +48,41 @@ class ModelPipeline:
         self.class_names = getattr(backend, "class_names", None)
 
     def __call__(self, raw_input: Any, **process_kwargs: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        verbose = process_kwargs.get("verbose", False)
+        
+        # Preprocessing
+        t0 = time.perf_counter()
         inputs, meta = self._prepare(raw_input)
+        t1 = time.perf_counter()
+        preprocess_time = (t1 - t0) * 1000  # Convert to ms
+        
+        # Inference
+        t2 = time.perf_counter()
         if process_kwargs:
             outputs = self._infer(inputs, **process_kwargs)
-            return self._process(outputs, meta, **process_kwargs)
-
-        outputs = self._infer(inputs)
-        return self._process(outputs, meta)
+        else:
+            outputs = self._infer(inputs)
+        t3 = time.perf_counter()
+        inference_time = (t3 - t2) * 1000  # Convert to ms
+        
+        # Postprocessing
+        t4 = time.perf_counter()
+        if process_kwargs:
+            result = self._process(outputs, meta, **process_kwargs)
+        else:
+            result = self._process(outputs, meta)
+        t5 = time.perf_counter()
+        postprocess_time = (t5 - t4) * 1000  # Convert to ms
+        
+        # Log timing if verbose
+        if verbose:
+            total_time = preprocess_time + inference_time + postprocess_time
+            print(f"Pipeline timing: preprocess={preprocess_time:.2f}ms, "
+                  f"inference={inference_time:.2f}ms, "
+                  f"postprocess={postprocess_time:.2f}ms, "
+                  f"total={total_time:.2f}ms")
+        
+        return result
 
     predict = __call__
 
