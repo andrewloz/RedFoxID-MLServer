@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 def results_to_proto_boxes(r, pb):
     """
     r: Ultralytics Results (e.g. results[0])
@@ -48,3 +49,44 @@ def results_to_proto_boxes(r, pb):
 
     out.objects.extend(dets)
     return out
+
+
+def arrays_to_proto_boxes(boxes_xyxy, scores, class_ids, pb, class_names=None):
+    out = pb.ResponsePayload()
+
+    if boxes_xyxy.size == 0:
+        return out
+
+    Box = pb.BoxXYWH
+    Det = pb.Detection
+
+    for bbox, score, cls_id in zip(boxes_xyxy, scores, class_ids):
+        x1, y1, x2, y2 = bbox
+        w = x2 - x1
+        h = y2 - y1
+        cx = x1 + w * 0.5
+        cy = y1 + h * 0.5
+
+        out.objects.append(
+            Det(
+                box=Box(x=float(cx), y=float(cy), w=float(w), h=float(h)),
+                confidence=float(score),
+                class_id=int(cls_id),
+                class_name=_class_name(class_names, int(cls_id)),
+            )
+        )
+
+    return out
+
+
+def _class_name(class_names, cls_id):
+    if class_names is None:
+        return ""
+
+    if isinstance(class_names, dict):
+        return class_names.get(cls_id, "")
+
+    try:
+        return class_names[cls_id]
+    except Exception:
+        return ""
