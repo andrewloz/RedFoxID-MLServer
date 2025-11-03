@@ -29,18 +29,16 @@ def prepare_yolo_input(raw_input: Any) -> Tuple[Inputs, Meta]:
 
     # Store original shape for postprocessing
     orig_shape = raw_input.shape[:2]
+    h, w = orig_shape
     
-    # Drop alpha and reverse to BGR: RGBA -> BGR
-    image_bgr = raw_input[:, :, 2::-1]
+    # Pre-allocate output buffer (NCHW format)
+    image_nchw = np.empty((1, 3, h, w), dtype=np.float32)
     
-    # Convert BGR uint8 HWC [0, 255] -> float32 HWC [0, 1]
-    image_float = image_bgr.astype(np.float32) / 255.0
-    
-    # Transpose HWC -> CHW and add batch dimension -> NCHW
-    image_nchw = np.transpose(image_float, (2, 0, 1))[None, ...]
-    
-    # Ensure contiguous memory layout
-    image_nchw = np.ascontiguousarray(image_nchw, dtype=np.float32)
+    # Vectorized: extract BGR channels, transpose, convert, normalize in minimal ops
+    # Use direct indexing into pre-allocated buffer
+    image_nchw[0, 0] = raw_input[:, :, 2].astype(np.float32, copy=False) * np.float32(1.0/255.0)
+    image_nchw[0, 1] = raw_input[:, :, 1].astype(np.float32, copy=False) * np.float32(1.0/255.0)
+    image_nchw[0, 2] = raw_input[:, :, 0].astype(np.float32, copy=False) * np.float32(1.0/255.0)
     
     meta: Meta = {
         "orig_shape": orig_shape,
