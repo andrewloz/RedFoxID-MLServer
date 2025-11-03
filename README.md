@@ -68,6 +68,34 @@ Configuration
    ```
 3. Review the rest of the configuration file to make sure any detector- or environment-specific settings match your deployment.
 
+Generating Protobuf Files
+--------------------------
+
+If you modify the `.proto` definition, regenerate the Python and Go bindings:
+
+**Python:**
+```bash
+python -m grpc_tools.protoc \
+  -I./protos \
+  --python_out=. \
+  --grpc_python_out=. \
+  --pyi_out=. \
+  ./protos/detect_object.proto
+```
+
+**Go:**
+```bash
+protoc \
+  -I./protos \
+  --go_out=./go_output \
+  --go_opt=paths=source_relative \
+  --go-grpc_out=./go_output \
+  --go-grpc_opt=paths=source_relative \
+  ./protos/detect_object.proto
+```
+
+The Python command generates files in the repository root (`detect_object_pb2.py`, `detect_object_pb2_grpc.py`, `detect_object_pb2.pyi`). The Go command outputs to `go_output/protos/`.
+
 Running the Server Locally
 --------------------------
 
