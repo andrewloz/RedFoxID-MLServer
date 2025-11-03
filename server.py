@@ -6,6 +6,8 @@ import logging
 import os
 
 import grpc
+import numpy as np
+import cv2
 
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
@@ -14,7 +16,7 @@ from server_utils import arrays_to_proto_boxes
 from src.config import Config
 from src.inference.pipeline import ModelPipeline
 from src.inference.backends import UltralyticsBackend, OpenvinoBackend, OnnxBackend
-from src.inference.preprocess import prepare_png_bytes, prepare_yolo_input
+from src.inference.preprocess import prepare_rgba_bytes, prepare_yolo_input
 from src.inference.postprocess import process_ultralytics_results, process_yolo_results
 
 APP_VERSION = "0.0.0"
@@ -42,7 +44,7 @@ class DetectObjectService:
         if backend_type == "ultralytics":
             backend_class = UltralyticsBackend
             if model_type == "yolo":
-                preprocess_fn = prepare_png_bytes
+                preprocess_fn = prepare_rgba_bytes
                 postprocess_fn = process_ultralytics_results
             else:
                 raise ValueError(f"ModelType '{model_type}' not supported with Ultralytics backend")
@@ -89,23 +91,27 @@ class DetectObjectService:
         
         if warmup_enabled and os.path.exists(warmup_image_path):
             print(f"Running warmup inference with {warmup_image_path}...")
-            with open(warmup_image_path, "rb") as f:
-                warmup_image_bytes = f.read()
-            
-            for name, model in self.models.items():
-                try:
-                    print(f"  Warming up model: {name}")
-                    _ = model(
-                        warmup_image_bytes,
-                        imgsz=(640, 640),
-                        conf=0.25,
-                        iou=0.7,
-                        verbose=False,
-                        save=False,
-                    )
-                    print(f"  Warmup complete for {name}")
-                except Exception as e:
-                    print(f"  Warning: Warmup failed for {name}: {e}")
+            # Load as RGBA for warmup
+            warmup_image = cv2.imread(warmup_image_path, cv2.IMREAD_UNCHANGED)
+            if warmup_image is not None:
+                # Ensure RGBA format
+                if warmup_image.shape[2] == 3:
+                    warmup_image = cv2.cvtColor(warmup_image, cv2.COLOR_BGR2BGRA)
+                
+                for name, model in self.models.items():
+                    try:
+                        print(f"  Warming up model: {name}")
+                        _ = model(
+                            warmup_image,
+                            imgsz=(640, 640),
+                            conf=0.25,
+                            iou=0.7,
+                            verbose=False,
+                            save=False,
+                        )
+                        print(f"  Warmup complete for {name}")
+                    except Exception as e:
+                        print(f"  Warning: Warmup failed for {name}: {e}")
         elif warmup_enabled:
             print(f"Warning: Warmup enabled but image not found at {warmup_image_path}")
 
@@ -120,13 +126,21 @@ class DetectObjectService:
 
     def Request(self, request, context):
         try:
-            if not getattr(request, "image_png_bytes", None):
-                raise Exception("No image_png_bytes in payload loaded, please provide image bytes for inference")
+            if not getattr(request, "image_bytes", None):
+                raise Exception("No image_bytes in payload loaded, please provide image bytes for inference")
 
             if not getattr(request, "model_name", None):
                 raise Exception("No model_name in payload loaded, please provide model_name")
+            
+            if not request.image_width or not request.image_height:
+                raise Exception("image_width and image_height must be provided")
 
             model = self._get_model(request.model_name)
+
+            # Reshape raw RGBA bytes to numpy array (fastest path)
+            image_array = np.frombuffer(request.image_bytes, dtype=np.uint8).reshape(
+                request.image_height, request.image_width, 4
+            )
 
             pipeline_kwargs = {
                 "imgsz": (640, 640),
@@ -139,7 +153,7 @@ class DetectObjectService:
             }
 
             boxes, scores, cls_ids = model(
-                request.image_png_bytes,
+                image_array,
                 **pipeline_kwargs,
             )
 

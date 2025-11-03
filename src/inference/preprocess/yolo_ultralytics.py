@@ -9,21 +9,16 @@ Inputs = Tuple[np.ndarray, ...]
 Meta = dict
 
 
-def prepare_png_bytes(raw_input: Any) -> Tuple[Inputs, Meta]:
-    if isinstance(raw_input, (bytes, bytearray, memoryview)):
-        np_view = np.frombuffer(raw_input, dtype=np.uint8)
-        image = cv2.imdecode(np_view, cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError("Failed to decode image bytes for YOLO inference")
-    elif isinstance(raw_input, np.ndarray):
-        image = raw_input
-    else:
-        raise TypeError(f"Unsupported input type {type(raw_input)!r} for YOLO preprocessing")
+def prepare_rgba_bytes(raw_input: Any) -> Tuple[Inputs, Meta]:
+    if not isinstance(raw_input, np.ndarray):
+        raise TypeError(f"Expected numpy array, got {type(raw_input)!r}")
 
-    if image.ndim != 3 or image.shape[2] != 3:
-        raise ValueError(f"Expected BGR image with 3 channels, got shape {image.shape}")
+    if raw_input.ndim != 3 or raw_input.shape[2] != 4:
+        raise ValueError(f"Expected RGBA image with 4 channels, got shape {raw_input.shape}")
 
-    image = np.ascontiguousarray(image)
+    # Drop alpha channel: RGBA -> BGR (OpenCV convention)
+    image = raw_input[:, :, 2::-1]  # Reverse RGB to BGR, drop alpha
+    
     meta: Meta = {
         "orig_shape": image.shape[:2],
     }

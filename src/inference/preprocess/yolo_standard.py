@@ -13,32 +13,28 @@ def prepare_yolo_input(raw_input: Any) -> Tuple[Inputs, Meta]:
     """
     Prepare input for standard YOLO models (OpenVINO, ONNX, etc.).
     
-    Converts image to float32 NCHW format normalized to [0, 1].
+    Converts RGBA image to float32 NCHW format normalized to [0, 1].
     
     Args:
-        raw_input: Image bytes, bytearray, or numpy array
+        raw_input: RGBA numpy array (H, W, 4)
         
     Returns:
         Tuple of (inputs, meta) where inputs is (image_nchw,) and meta contains original shape
     """
-    if isinstance(raw_input, (bytes, bytearray, memoryview)):
-        np_view = np.frombuffer(raw_input, dtype=np.uint8)
-        image = cv2.imdecode(np_view, cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError("Failed to decode image bytes for YOLO inference")
-    elif isinstance(raw_input, np.ndarray):
-        image = raw_input
-    else:
-        raise TypeError(f"Unsupported input type {type(raw_input)!r} for YOLO preprocessing")
+    if not isinstance(raw_input, np.ndarray):
+        raise TypeError(f"Expected numpy array, got {type(raw_input)!r}")
 
-    if image.ndim != 3 or image.shape[2] != 3:
-        raise ValueError(f"Expected BGR image with 3 channels, got shape {image.shape}")
+    if raw_input.ndim != 3 or raw_input.shape[2] != 4:
+        raise ValueError(f"Expected RGBA image with 4 channels, got shape {raw_input.shape}")
 
     # Store original shape for postprocessing
-    orig_shape = image.shape[:2]
+    orig_shape = raw_input.shape[:2]
+    
+    # Drop alpha and reverse to BGR: RGBA -> BGR
+    image_bgr = raw_input[:, :, 2::-1]
     
     # Convert BGR uint8 HWC [0, 255] -> float32 HWC [0, 1]
-    image_float = image.astype(np.float32) / 255.0
+    image_float = image_bgr.astype(np.float32) / 255.0
     
     # Transpose HWC -> CHW and add batch dimension -> NCHW
     image_nchw = np.transpose(image_float, (2, 0, 1))[None, ...]
