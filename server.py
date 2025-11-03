@@ -54,6 +54,32 @@ class DetectObjectService:
         if not self.models:
             raise RuntimeError("No models configured for inference.")
 
+        # Warmup inference to pre-compile model for GPU/OpenVINO
+        warmup_enabled = bool(int(self.config.get("WarmupInference", "0")))
+        warmup_image_path = self.config.get("WarmupImagePath", "tests/img_test.png")
+        
+        if warmup_enabled and os.path.exists(warmup_image_path):
+            print(f"Running warmup inference with {warmup_image_path}...")
+            with open(warmup_image_path, "rb") as f:
+                warmup_image_bytes = f.read()
+            
+            for name, model in self.models.items():
+                try:
+                    print(f"  Warming up model: {name}")
+                    _ = model(
+                        warmup_image_bytes,
+                        imgsz=(640, 640),
+                        conf=0.25,
+                        iou=0.7,
+                        verbose=False,
+                        save=False,
+                    )
+                    print(f"  Warmup complete for {name}")
+                except Exception as e:
+                    print(f"  Warning: Warmup failed for {name}: {e}")
+        elif warmup_enabled:
+            print(f"Warning: Warmup enabled but image not found at {warmup_image_path}")
+
     def _get_model(self, name: str) -> ModelPipeline:
         if name in self.models:
             return self.models[name]

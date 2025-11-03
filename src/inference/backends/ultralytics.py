@@ -23,8 +23,6 @@ class UltralyticsBackend:
         **predict_kwargs: Any,
     ) -> None:
         self._model = YOLO(model_path, task="detect")
-        if device:
-            self._model.to(device)
 
         self._predict_kwargs: Dict[str, Any] = {
             "conf": default_conf,
@@ -32,6 +30,10 @@ class UltralyticsBackend:
             "verbose": verbose,
             **predict_kwargs,
         }
+        
+        # Let ultralytics handle device selection during prediction
+        if device:
+            self._predict_kwargs["device"] = device
         names = getattr(self._model, "names", None)
         self.class_names = dict(names) if isinstance(names, dict) else names
 
