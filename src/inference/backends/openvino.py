@@ -61,10 +61,17 @@ class OpenvinoBackend:
         if verbose:
             print(f"Compiling OpenVINO model on device: {device}")
         
-        # NPU requires LEVEL_ZERO backend configuration
+        # NPU-specific configuration
         config = {}
         if device.upper() == "NPU":
-            config = {"NPU_COMPILER_TYPE": "DRIVER"}
+            if verbose:
+                try:
+                    driver_version = core.get_property(device, "NPU_DRIVER_VERSION")
+                    compiler_version = core.get_property(device, "NPU_COMPILER_VERSION")
+                    print(f"NPU Driver Version: {driver_version}")
+                    print(f"NPU Compiler Version: {compiler_version}")
+                except Exception as e:
+                    print(f"Could not query NPU info: {e}")
         
         self._compiled_model = core.compile_model(model, device, config)
         
