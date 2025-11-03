@@ -2,7 +2,12 @@
 
 from .onnx import OnnxBackend
 from .openvino import OpenvinoBackend
-from .ultralytics import UltralyticsBackend
 
-__all__ = ["UltralyticsBackend", "OpenvinoBackend", "OnnxBackend"]
+# Conditionally import ultralytics backend if available
+try:
+    from .ultralytics import UltralyticsBackend
+    __all__ = ["UltralyticsBackend", "OpenvinoBackend", "OnnxBackend"]
+except ImportError:
+    UltralyticsBackend = None
+    __all__ = ["OpenvinoBackend", "OnnxBackend"]
 

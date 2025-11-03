@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 
 
 def results_to_proto_boxes(r, pb):
@@ -7,6 +6,8 @@ def results_to_proto_boxes(r, pb):
     r: Ultralytics Results (e.g. results[0])
     pb: generated detect_object_pb2 module
     """
+    import torch
+    
     out = pb.ResponsePayload()
 
     boxes = getattr(r, "boxes", None)

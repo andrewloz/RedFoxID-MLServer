@@ -1,6 +1,5 @@
 #
 # Build targets that correspond to the tags documented in README.md:
-#   docker build --target production    -t redfoxid/inference-server:production .
 #   docker build --target cuda          -t redfoxid/inference-server:cuda .
 #   docker build --target openvino-cpu  -t redfoxid/inference-server:openvino-cpu .
 #   docker build --target openvino-gpu  -t redfoxid/inference-server:openvino-gpu .
@@ -45,13 +44,6 @@ RUN mkdir -p "${YOLO_CONFIG_DIR}" && chmod -R 777 "${YOLO_CONFIG_DIR}"
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 
-# ---------- production (portable CPU / ONNX Runtime) ----------
-FROM base AS production
-
-RUN python -m pip install --no-cache-dir "onnxruntime>=1.18" && \
-    python -m pip uninstall -y torch torchvision || true
-
-
 # ---------- cuda (PyTorch CUDA wheels) ----------
 # PyTorch CUDA wheels bundle CUDA; host only needs NVIDIA driver + nvidia-container-runtime
 FROM base AS cuda
@@ -77,12 +69,9 @@ RUN python -m pip install --no-cache-dir --extra-index-url https://pypi.nvidia.c
 # ---------- openvino variants ----------
 FROM base AS openvino-base
 
+# OpenVINO doesn't need ultralytics backend, remove it to keep image lean
 RUN python -m pip install --no-cache-dir "openvino>=2024.0.0" && \
-    python -m pip install --no-cache-dir \
-        torch \
-        torchvision \
-        --index-url "https://download.pytorch.org/whl/cpu" && \
-    python -m pip uninstall -y onnxruntime || true
+    python -m pip uninstall -y ultralytics || true
 
 # OpenVINO CPU-only image
 FROM openvino-base AS openvino-cpu

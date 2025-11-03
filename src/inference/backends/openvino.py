@@ -61,7 +61,12 @@ class OpenvinoBackend:
         if verbose:
             print(f"Compiling OpenVINO model on device: {device}")
         
-        self._compiled_model = core.compile_model(model, device)
+        # NPU requires LEVEL_ZERO backend configuration
+        config = {}
+        if device.upper() == "NPU":
+            config = {"NPU_COMPILER_TYPE": "DRIVER"}
+        
+        self._compiled_model = core.compile_model(model, device, config)
         
         # Get input name for inference
         input_port = self._compiled_model.input(0)

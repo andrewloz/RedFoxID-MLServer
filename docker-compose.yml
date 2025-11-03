@@ -32,22 +32,8 @@ services:
   #   restart: unless-stopped
 
   # OpenVINO GPU variant (Intel):
-  inference-server:
-    image: redfoxid/inference-server:0.0.0-openvino-gpu
-    container_name: inference-server
-    ports:
-      - "50051:50051"
-    volumes:
-      - ./model:/app/model:ro
-      - ./config.ini:/app/config.ini:ro
-    devices:
-      - /dev/dri:/dev/dri
-    command: config.ini
-    restart: unless-stopped
-
-  # OpenVINO NPU variant (Intel):
   # inference-server:
-  #   image: redfoxid/inference-server:0.0.0-openvino-npu
+  #   image: redfoxid/inference-server:0.0.0-openvino-gpu
   #   container_name: inference-server
   #   ports:
   #     - "50051:50051"
@@ -55,19 +41,20 @@ services:
   #     - ./model:/app/model:ro
   #     - ./config.ini:/app/config.ini:ro
   #   devices:
-  #     - /dev/accel:/dev/accel
+  #     - /dev/dri:/dev/dri
   #   command: config.ini
   #   restart: unless-stopped
 
-  # Production ONNX variant:
-  # inference-server:
-  #   image: redfoxid/inference-server:0.0.0-production
-  #   container_name: inference-server
-  #   ports:
-  #     - "50051:50051"
-  #   volumes:
-  #     - ./model:/app/model:ro
-  #     - ./config.ini:/app/config.ini:ro
-  #   command: config.ini
-  #   restart: unless-stopped
-
+  # OpenVINO NPU variant (Intel):
+  inference-server:
+    image: redfoxid/inference-server:0.0.0-openvino-npu
+    container_name: inference-server
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./model:/app/model:ro
+      - ./config.ini:/app/config.ini:ro
+    devices:
+      - /dev/accel:/dev/accel
+    command: config.ini
+    restart: unless-stopped

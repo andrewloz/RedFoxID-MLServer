@@ -42,6 +42,8 @@ class DetectObjectService:
 
         # Backend selection
         if backend_type == "ultralytics":
+            if UltralyticsBackend is None:
+                raise RuntimeError("Ultralytics backend not available. Install ultralytics package.")
             backend_class = UltralyticsBackend
             if model_type == "yolo":
                 preprocess_fn = prepare_rgba_bytes
