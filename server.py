@@ -13,9 +13,9 @@ import detect_object_pb2 as pb
 from server_utils import arrays_to_proto_boxes
 from src.config import Config
 from src.inference.pipeline import ModelPipeline
-from src.inference.backends import UltralyticsBackend
-from src.inference.preprocess import prepare_png_bytes
-from src.inference.postprocess import process_results
+from src.inference.backends import UltralyticsBackend, OpenvinoBackend, OnnxBackend
+from src.inference.preprocess import prepare_png_bytes, prepare_yolo_input
+from src.inference.postprocess import process_ultralytics_results, process_yolo_results
 
 APP_VERSION = "0.0.0"
 
@@ -25,30 +25,59 @@ class DetectObjectService:
         cfg, models = Config(config_path).getAll()
         self.config = cfg
         self.models: dict[str, ModelPipeline] = {}
-        self.inferenceLib = cfg.get("InferenceLibrary", "ultralytics")
-        print(f"Using library: {self.inferenceLib}")
+        backend_type = cfg.get("Backend", "ultralytics").lower()
+        model_type = cfg.get("ModelType", "yolo").lower()
+        print(f"Using backend: {backend_type}, model type: {model_type}")
         print("Configuration:", dict(self.config))
-
-        if self.inferenceLib != "ultralytics":
-            raise NotImplementedError(
-                "ModelPipeline server path currently supports only 'ultralytics'."
-            )
 
         device_cfg = self.config.get("Device", "") or None
         verbose_flag = bool(int(self.config.get("Verbose", "0")))
 
+        # Select backend, preprocessing, and postprocessing based on config
+        backend_class = None
+        preprocess_fn = None
+        postprocess_fn = None
+
+        # Backend selection
+        if backend_type == "ultralytics":
+            backend_class = UltralyticsBackend
+            if model_type == "yolo":
+                preprocess_fn = prepare_png_bytes
+                postprocess_fn = process_ultralytics_results
+            else:
+                raise ValueError(f"ModelType '{model_type}' not supported with Ultralytics backend")
+                
+        elif backend_type == "openvino":
+            backend_class = OpenvinoBackend
+            if model_type == "yolo":
+                preprocess_fn = prepare_yolo_input
+                postprocess_fn = process_yolo_results
+            else:
+                raise ValueError(f"ModelType '{model_type}' not yet implemented for OpenVINO backend")
+                
+        elif backend_type == "onnx":
+            backend_class = OnnxBackend
+            if model_type == "yolo":
+                preprocess_fn = prepare_yolo_input
+                postprocess_fn = process_yolo_results
+            else:
+                raise ValueError(f"ModelType '{model_type}' not yet implemented for ONNX backend")
+        else:
+            raise ValueError(f"Unknown backend: '{backend_type}'. Supported: ultralytics, openvino, onnx")
+
+        # Load models with selected backend
         for model_path in models:
             name = os.path.basename(model_path) or model_path
             if not os.path.exists(model_path):
                 raise FileNotFoundError(f"{model_path} does not exist!")
 
-            print(f"loading model {name}")
-            backend = UltralyticsBackend(
+            print(f"Loading model {name}")
+            backend = backend_class(
                 model_path=str(model_path),
                 device=device_cfg,
                 verbose=verbose_flag,
             )
-            pipeline = ModelPipeline(prepare_png_bytes, backend, process_results)
+            pipeline = ModelPipeline(preprocess_fn, backend, postprocess_fn)
             self.models[name] = pipeline
 
         if not self.models:
