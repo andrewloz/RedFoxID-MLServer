@@ -4,15 +4,7 @@ opencv-python
 grpcio
 protobuf
 
-# Model/tooling
-ultralytics==8.3.217
-onnxruntime
-onnx
-openvino
-openvino-dev
-
 # Utilities
-matplotlib
 polars
 pyyaml
 Pillow

@@ -183,6 +183,27 @@ docker buildx bake cuda --set cuda.args.TORCH_CUDA_TAG=cu122
 
 Set the environment variables `REGISTRY` or `BUILD_CONTEXT` to override the default values used in the bake file (`redfoxid/inference-server` and current directory respectively).
 
+### Running with Docker Compose (Recommended)
+
+The easiest way to run the server is with Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+By default, this starts the `openvino-cpu` variant. To use a different backend:
+
+1. Edit `docker-compose.yml`
+2. Comment out the active service definition
+3. Uncomment your preferred variant (CUDA, OpenVINO GPU/NPU, or production)
+4. Run `docker-compose up -d`
+
+To stop the server:
+
+```bash
+docker-compose down
+```
+
 ### Verify hardware from inside the container
 
 If hardware support looks uncertain, run the bundled hardware probe from within the container before starting the server. Swap the image tag and device options to match the runtime you plan to test.
@@ -198,7 +219,11 @@ docker run --rm \
 
 For OpenVINO variants replace the tag (for example `openvino-gpu`) and substitute `--gpus all` with either `--device=/dev/dri` or `--device=/dev/accel` depending on GPU versus NPU access.
 
-### NVIDIA GPUs
+### Manual Docker Run Commands
+
+If you prefer not to use Docker Compose, here are the equivalent `docker run` commands for each variant:
+
+#### NVIDIA GPUs
 
 1. Install the NVIDIA container toolkit: <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>
 2. Run the container with GPU support:
@@ -213,7 +238,7 @@ For OpenVINO variants replace the tag (for example `openvino-gpu`) and substitut
    ```
    Omit `--rm` if you prefer to retain the container between runs.
 
-### Intel GPUs / NPUs (OpenVINO)
+#### Intel GPUs / NPUs (OpenVINO)
 
 Use the appropriate device path instead of `--gpus all`:
 
@@ -250,7 +275,7 @@ The OpenVINO GPU image now follows Intel's client driver guidance and installs t
 
 The OpenVINO NPU image bundles Intel's `linux-npu-driver` release `v1.24.0` (Ubuntu 24.04 tarball), Level Zero loader `1.24.2`, and the required USB/runtime dependencies (`libusb-1.0-0`, `udev`, `libtbb12`). Ensure the host exposes the VPU device path (commonly `/dev/accel` or the relevant `/dev/bus/usb` device) with the `--device` flag so OpenVINO can detect it inside the container.
 
-For CPU-only execution swap the device flag and tag:
+#### CPU-Only (OpenVINO or Production)
 
 ```bash
 docker run -v "$(pwd)/model:/app/model/:ro" \
