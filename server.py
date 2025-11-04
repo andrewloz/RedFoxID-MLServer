@@ -52,6 +52,8 @@ class DetectObjectService:
                 raise ValueError(f"ModelType '{model_type}' not supported with Ultralytics backend")
                 
         elif backend_type == "openvino":
+            if OpenvinoBackend is None:
+                raise RuntimeError("OpenVINO backend not available. Install openvino package.")
             backend_class = OpenvinoBackend
             if model_type == "yolo":
                 preprocess_fn = prepare_yolo_input

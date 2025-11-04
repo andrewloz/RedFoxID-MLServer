@@ -47,22 +47,14 @@ ENTRYPOINT ["/app/docker-entrypoint.sh"]
 FROM base AS cuda
 
 ARG TORCH_CUDA_TAG=cu126
+ARG TENSORRT_VERSION="10.13.3.9"
 
 RUN python -m pip install --no-cache-dir --break-system-packages \
         torch \
         torchvision \
-    --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}"
-
-# ---------- Tensorrt (NVIDIA TensorRt wheels) ----------
-# host only needs NVIDIA driver + nvidia-container-runtime
-FROM cuda AS trt
-
-ARG TORCH_CUDA_TAG
-ARG TENSORRT_VERSION="10.13.3.9"
-
-# Consider using tensorrt-lean for smaller image size
-RUN python -m pip install --no-cache-dir --break-system-packages --extra-index-url https://pypi.nvidia.com \
-    "tensorrt-${TORCH_CUDA_TAG::-1}==${TENSORRT_VERSION}"
+    --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}" && \
+    python -m pip install --no-cache-dir --break-system-packages --extra-index-url https://pypi.nvidia.com \
+        "tensorrt-${TORCH_CUDA_TAG::-1}==${TENSORRT_VERSION}"
 
 # ---------- openvino variants ----------
 FROM base AS openvino-base
