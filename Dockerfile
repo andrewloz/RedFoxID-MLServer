@@ -7,7 +7,7 @@
 #
 
 # ---------- common base (build once) ----------
-FROM ubuntu:22.04 AS base
+FROM ubuntu:24.04 AS base
 
 SHELL ["/bin/bash", "-c"]
 
@@ -21,21 +21,19 @@ RUN apt-get update && \
         curl \
         libgl1 \
         libglib2.0-0 \
-        python3.10 \
-        python3.10-distutils \
-        python3.10-venv \
+        python3 \
+        python3-venv \
         python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3.10 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    ln -sf /usr/bin/python3.10 /usr/bin/python
+RUN ln -sf /usr/bin/python3 /usr/bin/python
 
 WORKDIR /app
 
 COPY requirements.txt ./
 
-RUN python -m pip install --no-cache-dir -r requirements.txt && \
-    python -m pip install --no-cache-dir ultralytics --no-deps
+RUN python -m pip install --no-cache-dir --break-system-packages -r requirements.txt && \
+    python -m pip install --no-cache-dir --break-system-packages ultralytics --no-deps
 
 COPY . /app
 
@@ -50,7 +48,7 @@ FROM base AS cuda
 
 ARG TORCH_CUDA_TAG=cu126
 
-RUN python -m pip install --no-cache-dir \
+RUN python -m pip install --no-cache-dir --break-system-packages \
         torch \
         torchvision \
     --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}"
@@ -63,15 +61,15 @@ ARG TORCH_CUDA_TAG
 ARG TENSORRT_VERSION="10.13.3.9"
 
 # Consider using tensorrt-lean for smaller image size
-RUN python -m pip install --no-cache-dir --extra-index-url https://pypi.nvidia.com \
+RUN python -m pip install --no-cache-dir --break-system-packages --extra-index-url https://pypi.nvidia.com \
     "tensorrt-${TORCH_CUDA_TAG::-1}==${TENSORRT_VERSION}"
 
 # ---------- openvino variants ----------
 FROM base AS openvino-base
 
 # OpenVINO doesn't need ultralytics backend, remove it to keep image lean
-RUN python -m pip install --no-cache-dir "openvino>=2024.0.0" && \
-    python -m pip uninstall -y ultralytics || true
+RUN python -m pip install --no-cache-dir --break-system-packages "openvino>=2024.0.0" && \
+    python -m pip uninstall -y --break-system-packages ultralytics || true
 
 # OpenVINO CPU-only image
 FROM openvino-base AS openvino-cpu
