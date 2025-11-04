@@ -1,5 +1,5 @@
 variable "app_version" {
-  default = "0.0.0"
+  default = "0.0.1"
 }
 
 variable "build_context" {

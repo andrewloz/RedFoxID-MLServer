@@ -1,6 +1,6 @@
 services:
   # inference-server:
-  #   image: redfoxid/inference-server:0.0.0-openvino-cpu
+  #   image: redfoxid/inference-server:0.0.1-openvino-cpu
   #   container_name: inference-server
   #   ports:
   #     - "50051:50051"
@@ -14,7 +14,7 @@ services:
   
   # CUDA GPU variant:
   # inference-server:
-  #   image: redfoxid/inference-server:0.0.0-cuda12.6
+  #   image: redfoxid/inference-server:0.0.1-cuda12.6
   #   container_name: inference-server
   #   ports:
   #     - "50051:50051"
@@ -33,7 +33,7 @@ services:
 
   # OpenVINO GPU variant (Intel):
   # inference-server:
-  #   image: redfoxid/inference-server:0.0.0-openvino-gpu
+  #   image: redfoxid/inference-server:0.0.1-openvino-gpu
   #   container_name: inference-server
   #   ports:
   #     - "50051:50051"
@@ -47,7 +47,7 @@ services:
 
   # OpenVINO NPU variant (Intel):
   inference-server:
-    image: redfoxid/inference-server:0.0.0-openvino-npu
+    image: redfoxid/inference-server:0.0.1-openvino-npu
     container_name: inference-server
     ports:
       - "50051:50051"

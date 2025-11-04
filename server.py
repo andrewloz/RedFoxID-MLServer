@@ -19,7 +19,7 @@ from src.inference.backends import UltralyticsBackend, OpenvinoBackend, OnnxBack
 from src.inference.preprocess import prepare_rgba_bytes, prepare_yolo_input
 from src.inference.postprocess import process_ultralytics_results, process_yolo_results
 
-APP_VERSION = "0.0.0"
+APP_VERSION = "0.0.1"
 
 
 class DetectObjectService:
