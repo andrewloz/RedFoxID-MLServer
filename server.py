@@ -35,7 +35,7 @@ class DetectObjectService:
 
         device_cfg = self.config.get("Device", "") or None
         verbose_flag = bool(int(self.config.get("Verbose", "0")))
-        self.save_output_dir = self.config.get("SaveImgDir", "./output/Images")
+        self.save_output_dir = self.config.get("SaveImgDir", "./output")
 
         # Select backend, preprocessing, and postprocessing based on config
         backend_class = None
