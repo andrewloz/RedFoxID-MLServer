@@ -42,7 +42,7 @@ def prepare_yolo_input(raw_input: Any) -> Tuple[Inputs, Meta]:
     
     meta: Meta = {
         "orig_shape": orig_shape,
+        "orig_rgba": raw_input,
     }
 
     return (image_nchw,), meta
-

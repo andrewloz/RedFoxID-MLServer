@@ -18,6 +18,7 @@ from src.inference.pipeline import ModelPipeline
 from src.inference.backends import UltralyticsBackend, OpenvinoBackend, OnnxBackend
 from src.inference.preprocess import prepare_rgba_bytes, prepare_yolo_input
 from src.inference.postprocess import process_ultralytics_results, process_yolo_results
+from src.inference.postprocess.save_utils import save_detection_image
 
 APP_VERSION = "0.0.1"
 
@@ -83,7 +84,16 @@ class DetectObjectService:
                 device=device_cfg,
                 verbose=verbose_flag,
             )
-            pipeline = ModelPipeline(preprocess_fn, backend, postprocess_fn)
+            save_hook = None
+            if backend_type in {"openvino", "onnx"}:
+                save_hook = save_detection_image
+
+            pipeline = ModelPipeline(
+                preprocess_fn,
+                backend,
+                postprocess_fn,
+                save_hook=save_hook,
+            )
             self.models[name] = pipeline
 
         if not self.models:

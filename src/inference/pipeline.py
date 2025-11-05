@@ -9,6 +9,7 @@ import numpy as np
 Inputs = Tuple[np.ndarray, ...]
 Outputs = Tuple[Any, ...]
 Meta = dict
+SaveHook = Callable[..., None]
 
 
 class BackendAdapter(Protocol):
@@ -33,18 +34,21 @@ class PostprocessFn(Protocol):
 
 
 class ModelPipeline:
-    __slots__ = ("_prepare", "_backend", "_infer", "_process", "class_names")
+    __slots__ = ("_prepare", "_backend", "_infer", "_process", "_save_hook", "class_names")
 
     def __init__(
         self,
         prepare: PrepareFn,
         backend: BackendAdapter,
         process: PostprocessFn,
+        *,
+        save_hook: Optional[SaveHook] = None,
     ) -> None:
         self._prepare = prepare
         self._backend = backend
         self._infer = backend.infer
         self._process = process
+        self._save_hook = save_hook
         self.class_names = getattr(backend, "class_names", None)
 
     def __call__(self, raw_input: Any, **process_kwargs: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -77,11 +81,29 @@ class ModelPipeline:
         # Log timing if verbose
         if verbose:
             total_time = preprocess_time + inference_time + postprocess_time
-            print(f"Pipeline timing: preprocess={preprocess_time:.2f}ms, "
-                  f"inference={inference_time:.2f}ms, "
-                  f"postprocess={postprocess_time:.2f}ms, "
-                  f"total={total_time:.2f}ms")
-        
+            print(
+                f"Pipeline timing: preprocess={preprocess_time:.2f}ms, "
+                f"inference={inference_time:.2f}ms, "
+                f"postprocess={postprocess_time:.2f}ms, "
+                f"total={total_time:.2f}ms"
+            )
+
+        if self._save_hook is not None and process_kwargs.get("save"):
+            try:
+                self._save_hook(
+                    result[0],
+                    result[1],
+                    result[2],
+                    meta,
+                    project=process_kwargs.get("project"),
+                    name=process_kwargs.get("name"),
+                    class_names=self.class_names,
+                    verbose=verbose,
+                )
+            except Exception as exc:
+                if verbose:
+                    print(f"Pipeline save hook failed: {exc}")
+
         return result
 
     predict = __call__
@@ -90,4 +112,3 @@ class ModelPipeline:
         close_fn: Optional[Callable[[], None]] = getattr(self._backend, "close", None)
         if close_fn is not None:
             close_fn()
-
