@@ -44,12 +44,11 @@ def save_detection_image(
             print(f"Save hook: failed to read image array ({exc}), skipping image save")
         return
 
-    project_dir = Path(project or ".")
-    images_dir = project_dir / "Images"
-    images_dir.mkdir(parents=True, exist_ok=True)
+    target_dir = Path(project or ".")
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     base_name = name or "prediction"
-    save_path = images_dir / f"{base_name}.png"
+    save_path = target_dir / f"{base_name}.png"
 
     pil_image = Image.fromarray(image_array, mode="RGBA").convert("RGB")
     draw = ImageDraw.Draw(pil_image)

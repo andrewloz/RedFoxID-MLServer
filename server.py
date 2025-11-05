@@ -35,6 +35,7 @@ class DetectObjectService:
 
         device_cfg = self.config.get("Device", "") or None
         verbose_flag = bool(int(self.config.get("Verbose", "0")))
+        self.save_output_dir = self.config.get("SaveImgDir", "./output/Images")
 
         # Select backend, preprocessing, and postprocessing based on config
         backend_class = None
@@ -162,7 +163,7 @@ class DetectObjectService:
                 "iou": request.iou_threshold,
                 "verbose": bool(int(self.config.get("Verbose", "0"))),
                 "save": bool(int(self.config.get("SaveImg", "0"))),
-                "project": "./output",
+                "project": self.save_output_dir,
                 "name": request.image_name,
             }
 
@@ -183,7 +184,7 @@ class DetectObjectService:
                 from flatten_output_dir import flatten
                 from pathlib import Path
 
-                flatten(Path("./output") / "Images")
+                flatten(Path(self.save_output_dir))
 
             return results
 
