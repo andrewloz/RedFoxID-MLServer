@@ -1,3 +1,10 @@
+# IMPORTANT NOTICE
+
+This repo has been deprecated in favor of using the docker container provided by openvino.
+for further information please see the machine learning repository where you can find tooling and documentation on how 
+to convert model formats, run inference servers and more.
+
+
 RedfoxID Inference Server
 =========================
 
