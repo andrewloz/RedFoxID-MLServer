@@ -22,4 +22,4 @@ def flatten(output_dir: Path) -> None:
 
 if __name__ == "__main__":
 	here = Path(__file__).resolve().parent
-	flatten(here / "output" / "Images")
+	flatten(here / "output")

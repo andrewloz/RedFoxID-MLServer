@@ -1,0 +1,60 @@
+services:
+  inference-server:
+    image: redfoxid/inference-server:0.0.1-openvino-cpu
+    container_name: inference-server
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./model:/app/model:ro
+      - ./config.ini:/app/config.ini:ro
+    command: config.ini
+    restart: unless-stopped
+
+  # Alternative configurations (uncomment and comment out the above to use):
+  
+  # CUDA GPU variant:
+  # inference-server:
+  #   image: redfoxid/inference-server:0.0.1-cuda12.6
+  #   container_name: inference-server
+  #   ports:
+  #     - "50051:50051"
+  #   volumes:
+  #     - ./model:/app/model:ro
+  #     - ./config.ini:/app/config.ini:ro
+  #   command: config.ini
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   restart: unless-stopped
+
+  # OpenVINO GPU variant (Intel):
+  # inference-server:
+  #   image: redfoxid/inference-server:0.0.1-openvino-gpu
+  #   container_name: inference-server
+  #   ports:
+  #     - "50051:50051"
+  #   volumes:
+  #     - ./model:/app/model:ro
+  #     - ./config.ini:/app/config.ini:ro
+  #   devices:
+  #     - /dev/dri:/dev/dri
+  #   command: config.ini
+  #   restart: unless-stopped
+
+  # OpenVINO NPU variant (Intel):
+  # inference-server:
+  #   image: redfoxid/inference-server:0.0.1-openvino-npu
+  #   container_name: inference-server
+  #   ports:
+  #     - "50051:50051"
+  #   volumes:
+  #     - ./model:/app/model:ro
+  #     - ./config.ini:/app/config.ini:ro
+  #   devices:
+  #     - /dev/accel:/dev/accel
+  #   command: config.ini
+  #   restart: unless-stopped

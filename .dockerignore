@@ -1,12 +1,52 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.build/
-dist/
-.env
-.venv
+# Git
 .git
 .gitignore
-# If you generate Python from protos locally, you can still copy them:
-# app/*_pb2*.py
+.gitattributes
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+.dockerignore
+docker-bake.hcl
+Dockerfile*
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Documentation (README is copied but not critical if excluded)
+*.md
+!README.md
+
+# Output directories (runtime generated)
+output/
+
+# Development/profiling scripts
+server_profile.py
+
+# Go output (not needed in Python container)
+go_output/
+
+# Misc
+*.log
+.env
+.env.*

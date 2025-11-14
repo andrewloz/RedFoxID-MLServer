@@ -1,10 +1,12 @@
+# Core runtime
 numpy
-matplotlib
+opencv-python
+grpcio
+protobuf
+
+# Utilities
 polars
 pyyaml
 Pillow
 psutil
 requests>=2.23.0
-opencv-python
-grpcio
-protobuf

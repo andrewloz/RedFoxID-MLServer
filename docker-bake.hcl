@@ -1,5 +1,5 @@
 variable "app_version" {
-  default = "0.0.0"
+  default = "0.0.1"
 }
 
 variable "build_context" {
@@ -31,12 +31,6 @@ variable "tensorrt_major_minor" {
 
 target "base" {
   context    = build_context
-}
-
-target "production" {
-  inherits = ["base"]
-  target   = "production"
-  tags     = ["${registry}:${app_version}-production"]
 }
 
 target "cuda" {
@@ -85,7 +79,6 @@ target "openvino-npu" {
 
 group "all" {
   targets = [
-    "production",
     "openvino-cpu",
     "openvino-gpu",
     "openvino-npu",

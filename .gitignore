@@ -5,10 +5,12 @@ output/*
 __pycache__
 *.pth
 *.pt
+*.jpg
+*.png
 
 config.ini
-
+!input/test1.png
 *.prof
-.config
 
+.config
 .vscode/*

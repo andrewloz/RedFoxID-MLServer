@@ -1,9 +1,8 @@
 #! /usr/bin/env python3
 
-from ultralytics import YOLO
 from concurrent import futures
-import logging
 import argparse
+import logging
 import os
 
 import grpc
@@ -13,76 +12,188 @@ import cv2
 import detect_object_pb2_grpc as pbgrpc
 import detect_object_pb2 as pb
 
-from server_utils import results_to_proto_boxes
+from server_utils import arrays_to_proto_boxes
 from src.config import Config
+from src.inference.pipeline import ModelPipeline
+from src.inference.backends import UltralyticsBackend, OpenvinoBackend, OnnxBackend
+from src.inference.preprocess import prepare_rgba_bytes, prepare_yolo_input
+from src.inference.postprocess import process_ultralytics_results, process_yolo_results
+from src.inference.postprocess.save_utils import save_detection_image
 
-APP_VERSION = "0.0.0"
+APP_VERSION = "0.0.1"
 
-class DetectObjectService():
+
+class DetectObjectService:
     def __init__(self, config_path: str):
         cfg, models = Config(config_path).getAll()
         self.config = cfg
-        self.models = {}
+        self.models: dict[str, ModelPipeline] = {}
+        backend_type = cfg.get("Backend", "ultralytics").lower()
+        model_type = cfg.get("ModelType", "yolo").lower()
+        print(f"Using backend: {backend_type}, model type: {model_type}")
         print("Configuration:", dict(self.config))
-        print("Available Models:", self.models)
 
-        for m in models:
-            name = os.path.basename(m)
-            if not os.path.exists(m):
-                raise FileNotFoundError(f"{m} does not exist!")
-            if name == "":
-                name = m
-            print(f"loading model {name}")
-            self.models[name] = YOLO(f"{m}", task="detect")
-            device = self.config.get('Device', '')
-            print(f"Device configure: {device}")
-            self.models[name].predict(device=device)
-            break  # load only the first model
+        device_cfg = self.config.get("Device", "") or None
+        verbose_flag = bool(int(self.config.get("Verbose", "0")))
+        self.save_output_dir = self.config.get("SaveImgDir", "./output")
 
-    def _get_model(self, name):
-        first_model = next(iter(self.models.values()))
-        return first_model
+        # Select backend, preprocessing, and postprocessing based on config
+        backend_class = None
+        preprocess_fn = None
+        postprocess_fn = None
+
+        # Backend selection
+        if backend_type == "ultralytics":
+            if UltralyticsBackend is None:
+                raise RuntimeError("Ultralytics backend not available. Install ultralytics package.")
+            backend_class = UltralyticsBackend
+            if model_type == "yolo":
+                preprocess_fn = prepare_rgba_bytes
+                postprocess_fn = process_ultralytics_results
+            else:
+                raise ValueError(f"ModelType '{model_type}' not supported with Ultralytics backend")
+                
+        elif backend_type == "openvino":
+            if OpenvinoBackend is None:
+                raise RuntimeError("OpenVINO backend not available. Install openvino package.")
+            backend_class = OpenvinoBackend
+            if model_type == "yolo":
+                preprocess_fn = prepare_yolo_input
+                postprocess_fn = process_yolo_results
+            else:
+                raise ValueError(f"ModelType '{model_type}' not yet implemented for OpenVINO backend")
+                
+        elif backend_type == "onnx":
+            backend_class = OnnxBackend
+            if model_type == "yolo":
+                preprocess_fn = prepare_yolo_input
+                postprocess_fn = process_yolo_results
+            else:
+                raise ValueError(f"ModelType '{model_type}' not yet implemented for ONNX backend")
+        else:
+            raise ValueError(f"Unknown backend: '{backend_type}'. Supported: ultralytics, openvino, onnx")
+
+        # Load models with selected backend
+        for model_path in models:
+            name = os.path.basename(model_path) or model_path
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"{model_path} does not exist!")
+
+            print(f"Loading model {name}")
+            backend = backend_class(
+                model_path=str(model_path),
+                device=device_cfg,
+                verbose=verbose_flag,
+            )
+            save_hook = None
+            if backend_type in {"openvino", "onnx"}:
+                save_hook = save_detection_image
+
+            pipeline = ModelPipeline(
+                preprocess_fn,
+                backend,
+                postprocess_fn,
+                save_hook=save_hook,
+            )
+            self.models[name] = pipeline
+
+        if not self.models:
+            raise RuntimeError("No models configured for inference.")
+
+        # Warmup inference to pre-compile model for GPU/OpenVINO
+        warmup_enabled = bool(int(self.config.get("WarmupInference", "0")))
+        warmup_image_path = self.config.get("WarmupImagePath", "tests/img_test.png")
+        
+        if warmup_enabled and os.path.exists(warmup_image_path):
+            print(f"Running warmup inference with {warmup_image_path}...")
+            # Load as RGBA for warmup
+            warmup_image = cv2.imread(warmup_image_path, cv2.IMREAD_UNCHANGED)
+            if warmup_image is not None:
+                # Ensure RGBA format
+                if warmup_image.shape[2] == 3:
+                    warmup_image = cv2.cvtColor(warmup_image, cv2.COLOR_BGR2BGRA)
+                
+                for name, model in self.models.items():
+                    try:
+                        print(f"  Warming up model: {name}")
+                        _ = model(
+                            warmup_image,
+                            imgsz=(640, 640),
+                            conf=0.25,
+                            iou=0.7,
+                            verbose=False,
+                            save=False,
+                        )
+                        print(f"  Warmup complete for {name}")
+                    except Exception as e:
+                        print(f"  Warning: Warmup failed for {name}: {e}")
+        elif warmup_enabled:
+            print(f"Warning: Warmup enabled but image not found at {warmup_image_path}")
+
+    def _get_model(self, name: str) -> ModelPipeline:
+        if name in self.models:
+            return self.models[name]
+        if len(self.models) == 1:
+            return next(iter(self.models.values()))
+        raise Exception(
+            f"Model '{name}' not available. Available models: {', '.join(self.models.keys())}"
+        )
 
     def Request(self, request, context):
         try:
-            if not getattr(request, "image_png_bytes", None):
-                raise Exception("No image_png_bytes in payload loaded, please provide image btyes for inference")
+            if not getattr(request, "image_bytes", None):
+                raise Exception("No image_bytes in payload loaded, please provide image bytes for inference")
+
+            if not getattr(request, "model_name", None):
+                raise Exception("No model_name in payload loaded, please provide model_name")
+            
+            if not request.image_width or not request.image_height:
+                raise Exception("image_width and image_height must be provided")
 
             model = self._get_model(request.model_name)
 
-            np_arr = np.frombuffer(request.image_png_bytes, dtype=np.uint8)
-            img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-            if img is None:
-                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-                context.set_details("Could not decode image")
-                return pb.ResponsePayload(objects=[])
-
-            results = model.predict(
-                img,
-                imgsz=(img.shape[0], img.shape[1]),
-                conf=request.confidence_threshold,
-                iou=request.iou_threshold,
-                verbose=bool(int(self.config.get("Verbose", "0"))),
-                save=bool(int(self.config.get("SaveImg", "0"))),
-                project="./output",
-                name=request.image_name,
-                device=self.config.get("Device", "")
+            # Reshape raw RGBA bytes to numpy array (fastest path)
+            image_array = np.frombuffer(request.image_bytes, dtype=np.uint8).reshape(
+                request.image_height, request.image_width, 4
             )
 
-            if bool(int(self.config.get("SaveImg", "0"))):
+            pipeline_kwargs = {
+                "imgsz": (640, 640),
+                "conf": request.confidence_threshold,
+                "iou": request.iou_threshold,
+                "verbose": bool(int(self.config.get("Verbose", "0"))),
+                "save": bool(int(self.config.get("SaveImg", "0"))),
+                "project": self.save_output_dir,
+                "name": request.image_name,
+            }
+
+            boxes, scores, cls_ids = model(
+                image_array,
+                **pipeline_kwargs,
+            )
+
+            results = arrays_to_proto_boxes(
+                boxes,
+                scores,
+                cls_ids,
+                pb,
+                getattr(model, "class_names", None),
+            )
+
+            if pipeline_kwargs["save"]:
                 from flatten_output_dir import flatten
                 from pathlib import Path
-                flatten(Path("./output") / "Images")
 
-            objects = results_to_proto_boxes(results[0], pb)
-            return objects
+                flatten(Path(self.save_output_dir))
+
+            return results
 
         except Exception as e:
             print(e)
             context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
             context.set_details(str(e))
             return pb.ResponsePayload(objects=[])
+
 
 def serve(config_path: str):
     cfg, _ = Config(config_path).getAll()
@@ -94,6 +205,7 @@ def serve(config_path: str):
     server.start()
     print("Server started, listening on " + port)
     server.wait_for_termination()
+
 
 if __name__ == "__main__":
     logging.basicConfig()
@@ -113,4 +225,3 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Config file '{args.config_path}' not found.")
 
     serve(args.config_path)
-

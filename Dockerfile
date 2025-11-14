@@ -1,6 +1,5 @@
 #
 # Build targets that correspond to the tags documented in README.md:
-#   docker build --target production    -t redfoxid/inference-server:production .
 #   docker build --target cuda          -t redfoxid/inference-server:cuda .
 #   docker build --target openvino-cpu  -t redfoxid/inference-server:openvino-cpu .
 #   docker build --target openvino-gpu  -t redfoxid/inference-server:openvino-gpu .
@@ -8,7 +7,7 @@
 #
 
 # ---------- common base (build once) ----------
-FROM ubuntu:22.04 AS base
+FROM ubuntu:24.04 AS base
 
 SHELL ["/bin/bash", "-c"]
 
@@ -22,21 +21,19 @@ RUN apt-get update && \
         curl \
         libgl1 \
         libglib2.0-0 \
-        python3.10 \
-        python3.10-distutils \
-        python3.10-venv \
+        python3 \
+        python3-venv \
         python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3.10 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    ln -sf /usr/bin/python3.10 /usr/bin/python
+RUN ln -sf /usr/bin/python3 /usr/bin/python
 
 WORKDIR /app
 
 COPY requirements.txt ./
 
-RUN python -m pip install --no-cache-dir -r requirements.txt && \
-    python -m pip install --no-cache-dir ultralytics --no-deps
+RUN python -m pip install --no-cache-dir --break-system-packages -r requirements.txt && \
+    python -m pip install --no-cache-dir --break-system-packages ultralytics --no-deps
 
 COPY . /app
 
@@ -45,44 +42,26 @@ RUN mkdir -p "${YOLO_CONFIG_DIR}" && chmod -R 777 "${YOLO_CONFIG_DIR}"
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 
-# ---------- production (portable CPU / ONNX Runtime) ----------
-FROM base AS production
-
-RUN python -m pip install --no-cache-dir "onnxruntime>=1.18" && \
-    python -m pip uninstall -y torch torchvision || true
-
-
 # ---------- cuda (PyTorch CUDA wheels) ----------
 # PyTorch CUDA wheels bundle CUDA; host only needs NVIDIA driver + nvidia-container-runtime
 FROM base AS cuda
 
 ARG TORCH_CUDA_TAG=cu126
-
-RUN python -m pip install --no-cache-dir \
-        torch \
-        torchvision \
-    --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}"
-
-# ---------- Tensorrt (NVIDIA TensorRt wheels) ----------
-# host only needs NVIDIA driver + nvidia-container-runtime
-FROM cuda AS trt
-
-ARG TORCH_CUDA_TAG
 ARG TENSORRT_VERSION="10.13.3.9"
 
-# Consider using tensorrt-lean for smaller image size
-RUN python -m pip install --no-cache-dir --extra-index-url https://pypi.nvidia.com \
-    "tensorrt-${TORCH_CUDA_TAG::-1}==${TENSORRT_VERSION}"
+RUN python -m pip install --no-cache-dir --break-system-packages \
+        torch \
+        torchvision \
+    --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}" && \
+    python -m pip install --no-cache-dir --break-system-packages --extra-index-url https://pypi.nvidia.com \
+        "tensorrt-${TORCH_CUDA_TAG::-1}==${TENSORRT_VERSION}"
 
 # ---------- openvino variants ----------
 FROM base AS openvino-base
 
-RUN python -m pip install --no-cache-dir "openvino>=2024.0.0" && \
-    python -m pip install --no-cache-dir \
-        torch \
-        torchvision \
-        --index-url "https://download.pytorch.org/whl/cpu" && \
-    python -m pip uninstall -y onnxruntime || true
+# OpenVINO doesn't need ultralytics backend, remove it to keep image lean
+RUN python -m pip install --no-cache-dir --break-system-packages "openvino>=2024.0.0" && \
+    python -m pip uninstall -y --break-system-packages ultralytics || true
 
 # OpenVINO CPU-only image
 FROM openvino-base AS openvino-cpu

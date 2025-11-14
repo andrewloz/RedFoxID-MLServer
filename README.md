@@ -17,7 +17,7 @@ Quick Start
 2. Create a virtual environment: `python3.9 -m venv venv`
 3. Activate it:
    - Linux/macOS: `source ./venv/bin/activate`
-   - Windows (PowerShell): `.\venv\Scripts\Activate.ps1`
+   - Windows (PowerShell): `./venv/Scripts/Activate.ps1`
 4. Install the core Python dependencies: `pip install -r requirements.txt`
 5. Install hardware-optimised runtimes (pick what suits your machine):
    - PyTorch: follow the command generator at <https://pytorch.org/get-started/locally/>
@@ -74,6 +74,34 @@ Configuration
    Models=/absolute/path/to/model.onnx
    ```
 3. Review the rest of the configuration file to make sure any detector- or environment-specific settings match your deployment.
+
+Generating Protobuf Files
+--------------------------
+
+If you modify the `.proto` definition, regenerate the Python and Go bindings:
+
+**Python:**
+```bash
+python -m grpc_tools.protoc \
+  -I./protos \
+  --python_out=. \
+  --grpc_python_out=. \
+  --pyi_out=. \
+  ./protos/detect_object.proto
+```
+
+**Go:**
+```bash
+protoc \
+  -I./protos \
+  --go_out=./go_output \
+  --go_opt=paths=source_relative \
+  --go-grpc_out=./go_output \
+  --go-grpc_opt=paths=source_relative \
+  ./protos/detect_object.proto
+```
+
+The Python command generates files in the repository root (`detect_object_pb2.py`, `detect_object_pb2_grpc.py`, `detect_object_pb2.pyi`). The Go command outputs to `go_output/protos/`.
 
 Running the Server Locally
 --------------------------
@@ -162,6 +190,27 @@ docker buildx bake cuda --set cuda.args.TORCH_CUDA_TAG=cu122
 
 Set the environment variables `REGISTRY` or `BUILD_CONTEXT` to override the default values used in the bake file (`redfoxid/inference-server` and current directory respectively).
 
+### Running with Docker Compose (Recommended)
+
+The easiest way to run the server is with Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+By default, this starts the `openvino-cpu` variant. To use a different backend:
+
+1. Edit `docker-compose.yml`
+2. Comment out the active service definition
+3. Uncomment your preferred variant (CUDA, OpenVINO GPU/NPU, or production)
+4. Run `docker-compose up -d`
+
+To stop the server:
+
+```bash
+docker-compose down
+```
+
 ### Verify hardware from inside the container
 
 If hardware support looks uncertain, run the bundled hardware probe from within the container before starting the server. Swap the image tag and device options to match the runtime you plan to test.
@@ -177,7 +226,11 @@ docker run --rm \
 
 For OpenVINO variants replace the tag (for example `openvino-gpu`) and substitute `--gpus all` with either `--device=/dev/dri` or `--device=/dev/accel` depending on GPU versus NPU access.
 
-### NVIDIA GPUs
+### Manual Docker Run Commands
+
+If you prefer not to use Docker Compose, here are the equivalent `docker run` commands for each variant:
+
+#### NVIDIA GPUs
 
 1. Install the NVIDIA container toolkit: <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>
 2. Run the container with GPU support:
@@ -192,7 +245,7 @@ For OpenVINO variants replace the tag (for example `openvino-gpu`) and substitut
    ```
    Omit `--rm` if you prefer to retain the container between runs.
 
-### Intel GPUs / NPUs (OpenVINO)
+#### Intel GPUs / NPUs (OpenVINO)
 
 Use the appropriate device path instead of `--gpus all`:
 
@@ -229,7 +282,7 @@ The OpenVINO GPU image now follows Intel's client driver guidance and installs t
 
 The OpenVINO NPU image bundles Intel's `linux-npu-driver` release `v1.24.0` (Ubuntu 24.04 tarball), Level Zero loader `1.24.2`, and the required USB/runtime dependencies (`libusb-1.0-0`, `udev`, `libtbb12`). Ensure the host exposes the VPU device path (commonly `/dev/accel` or the relevant `/dev/bus/usb` device) with the `--device` flag so OpenVINO can detect it inside the container.
 
-For CPU-only execution swap the device flag and tag:
+#### CPU-Only (OpenVINO or Production)
 
 ```bash
 docker run -v "$(pwd)/model:/app/model/:ro" \
